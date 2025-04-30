@@ -58,6 +58,7 @@ package body Board is
                         new_spot := new_spot + 1;
                     end if;
                 else
+                    new_b.curr_player := Next(@);
                     return new_b;
                 end if;
             end;
