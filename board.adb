@@ -61,24 +61,26 @@ package body Board is
                end if;
             else
                new_b.curr_player := Next (@);
-               if b.curr_player = new_b.curr_player then
-                  Ada.Text_IO.Put_Line ("Player didn't change!");
-               elsif b.store (1) > new_b.store (1) then
-                  Ada.Text_IO.Put_Line ("Player 1 store decreased!");
-                  Ada.Text_IO.Put_Line ("Old: " & To_String (b));
-                  Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
-               elsif b.store (2) > new_b.store (2) then
-                  Ada.Text_IO.Put_Line ("Player 2 store decreased!");
-                  Ada.Text_IO.Put_Line ("Old: " & To_String (b));
-                  Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
-               elsif Board_Sum (new_b) /= 72 then
-                  Ada.Text_IO.Put_Line ("Board sum isn't 72!");
-                  Ada.Text_IO.Put_Line ("Old: " & To_String (b));
-                  Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
-               -- elsif not Is_Legal_Board (new_b) then -- Is_legal Board current only does board sum
-               --   Ada.Text_IO.Put_Line ("Generic Board isn't legal!");
-               --   Ada.Text_IO.Put_Line ("Old: " & To_String (b));
-               --   Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
+               if false then
+                  if b.curr_player = new_b.curr_player then
+                     Ada.Text_IO.Put_Line ("Player didn't change!");
+                  elsif b.store (1) > new_b.store (1) then
+                     Ada.Text_IO.Put_Line ("Player 1 store decreased!");
+                     Ada.Text_IO.Put_Line ("Old: " & To_String (b));
+                     Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
+                  elsif b.store (2) > new_b.store (2) then
+                     Ada.Text_IO.Put_Line ("Player 2 store decreased!");
+                     Ada.Text_IO.Put_Line ("Old: " & To_String (b));
+                     Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
+                  elsif Board_Sum (new_b) /= 72 then
+                     Ada.Text_IO.Put_Line ("Board sum isn't 72!");
+                     Ada.Text_IO.Put_Line ("Old: " & To_String (b));
+                     Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
+                  elsif not Is_Legal_Board (new_b) then -- Is_legal Board current only does board sum
+                     Ada.Text_IO.Put_Line ("Generic Board isn't legal!");
+                     Ada.Text_IO.Put_Line ("Old: " & To_String (b));
+                     Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
+                  end if;
                end if;
                return new_b;
             end if;

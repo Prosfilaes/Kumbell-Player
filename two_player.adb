@@ -15,7 +15,7 @@ begin
       if Game_Over (b) then
          exit;
       end if;
-      ab_move := Alpha_Beta.Best_Move (b, 1);
+      ab_move := Alpha_Beta.Best_Move (b, 7);
       b := Move (b, ab_move.move);
       Put_Line (To_String (b));
    end loop;

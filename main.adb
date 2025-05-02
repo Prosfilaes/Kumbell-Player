@@ -6,10 +6,10 @@ with Ada.Text_IO;
 
 procedure Main is
 begin
-    for depth in 1 .. 12 loop
+    for depth in 1 .. 13 loop
     declare
         b : constant Game_State := Initialize;
-        move : constant Alpha_Beta.Score := Alpha_Beta.Best_Move(b, depth);
+        move : constant Alpha_Beta.Spot_Move_Score := Alpha_Beta.Best_Move(b, depth);
     begin
         Ada.Text_IO.Put ("Depth ");
         Ada.Text_IO.Put (depth'Image);
