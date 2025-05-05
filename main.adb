@@ -6,7 +6,7 @@ with Ada.Text_IO;
 
 procedure Main is
 begin
-    for depth in 1 .. 13 loop
+    for depth in 1 .. 40 loop
     declare
         b : constant Game_State := Initialize;
         move : constant Alpha_Beta.Spot_Move_Score := Alpha_Beta.Best_Move(b, depth);
