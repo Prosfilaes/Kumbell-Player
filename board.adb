@@ -125,7 +125,7 @@ package body Board is
       end if;
       if player1 > player2 then
          return -1;
-      elsif player2 < player1 then
+      elsif player1 < player2 then
          return 1;
       else
          return 0;
