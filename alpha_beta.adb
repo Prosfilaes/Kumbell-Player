@@ -82,7 +82,7 @@ package body Alpha_Beta is
          if Is_Legal_Move (b, m) then
             new_board := move (b, m);
             new_score := -alpha_beta_search (new_board, depth - 1, -127, 127);
-            if new_score > best_score then
+            if new_score >= best_score then
                best_score := new_score;
                best_move := m;
             end if;
