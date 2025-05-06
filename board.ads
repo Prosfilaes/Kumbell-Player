@@ -24,10 +24,11 @@ package Board is
    function Move (b : Game_State; spot : Board_Spot) return Game_State
    with
      Pre  => Is_Legal_Move (b, spot),
-     Post => b.curr_player /= Move'Result.curr_player and then
-            b.store(1) <= Move'Result.store(1) and then
-            b.store(2) <= Move'Result.store(2) and then
-            Is_Legal_Board (Move'Result);
+     Post =>
+       b.curr_player /= Move'Result.curr_player
+       and then b.store (1) <= Move'Result.store (1)
+       and then b.store (2) <= Move'Result.store (2)
+       and then Is_Legal_Board (Move'Result);
 
    function Game_Over (b : Game_State) return Boolean;
 
@@ -39,5 +40,14 @@ package Board is
    function Every_Move (b : Game_State) return Board_List;
 
    function To_String (b : Game_State) return String;
+
+   function Is_Compressable (b : Game_State) return Boolean;
+   
+   type Compressed_Board is mod 2 ** 64;
+   
+   function Compress (b : Game_State) return Compressed_Board
+   with
+     Pre  => Is_Compressable (b) and then Is_Legal_Board (b),
+     Post => Compress'Result < 2**63;
 
 end Board;

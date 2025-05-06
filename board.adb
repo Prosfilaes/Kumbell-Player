@@ -76,7 +76,8 @@ package body Board is
                      Ada.Text_IO.Put_Line ("Board sum isn't 72!");
                      Ada.Text_IO.Put_Line ("Old: " & To_String (b));
                      Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
-                  elsif not Is_Legal_Board (new_b) then -- Is_legal Board current only does board sum
+                  elsif not Is_Legal_Board (new_b) then
+                     -- Is_legal Board current only does board sum
                      Ada.Text_IO.Put_Line ("Generic Board isn't legal!");
                      Ada.Text_IO.Put_Line ("Old: " & To_String (b));
                      Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
@@ -168,11 +169,13 @@ package body Board is
    function To_String (b : Game_State) return String is
       s : Ada.Strings.Unbounded.Unbounded_String;
    begin
+      Append (s, "--->" & Ada.Characters.Latin_1.LF);
       for i in Board_Spot'(1) .. 6 loop
          Append (s, b.board (i)'Image & " ");
       end loop;
       Append (s, Ada.Characters.Latin_1.LF);
-      for i in Board_Spot'(7) .. 12 loop
+      Append (s, "<---" & Ada.Characters.Latin_1.LF);
+      for i in reverse Board_Spot'(7) .. 12 loop
          Append (s, b.board (i)'Image & " ");
       end loop;
       Append (s, Ada.Characters.Latin_1.LF);
@@ -201,4 +204,47 @@ package body Board is
       return Board_Sum (b) = 72;
    end Is_Legal_Board;
 
+   function Rotate_Board
+     (b : Game_State; switch_player : Boolean := False) return Game_State
+   is
+      new_board : Game_State := Initialize;
+   begin
+      for i in Board_Spot'(1) .. 6 loop
+         new_board.board (i) := b.board (7 + i);
+         new_board.board (7 + i) := b.board (i);
+      end loop;
+      new_board.store (1) := b.store (2);
+      new_board.store (2) := b.store (1);
+      if switch_player then
+         new_board.curr_player := Next (b.curr_player);
+      else
+         new_board.curr_player := b.curr_player;
+      end if;
+      return new_board;
+   end Rotate_Board;
+
+   function Is_Compressable (b : Game_State) return Boolean is
+   begin
+      for i in Board_Spot'(1) .. 12 loop
+         if b.board (i) > 15 then
+            return false;
+         end if;
+      end loop;
+      return true;
+   end Is_Compressable;
+
+   function Compress (b : Game_State) return Compressed_Board is
+      compressed : Compressed_Board := 0;
+      new_b      : Game_State := b;
+   begin
+      if new_b.curr_player = 2 then
+         new_b := Rotate_Board (new_b, True);
+      end if;
+      for i in Board_Spot'(1) .. 12 loop
+         compressed := compressed * 16 + Compressed_Board (new_b.board (i));
+      end loop;
+      compressed := compressed * 64 + Compressed_Board (b.store (1));
+      compressed := compressed * 64 + Compressed_Board (b.store (2));
+      return compressed;
+   end Compress;
 end Board;
