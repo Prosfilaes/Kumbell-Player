@@ -247,4 +247,56 @@ package body Board is
       compressed := compressed * 64 + Compressed_Board (b.store (2));
       return compressed;
    end Compress;
+
+   function Compress_Base64 (cb : Compressed_Board) return String is
+      compressed : Compressed_Board := cb;
+      s          : Unbounded_String;
+      base64     : constant String :=
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+   begin
+      for i in 1 .. 12 loop
+         append (s, base64 (Integer (compressed mod 64 + 1)));
+         compressed := compressed / 64;
+      end loop;
+      return To_String (s);
+   end Compress_Base64;
+
+   function DeBase64 (s : String) return Compressed_Board is
+   begin
+      declare
+         compressed : Compressed_Board := 0;
+      begin
+         for i in reverse 1 .. 12 loop
+            if s (i) >= 'A' and then s (i) <= 'Z' then
+               compressed :=
+                 compressed
+                 * 64
+                 + Compressed_Board
+                     (Character'Pos (s (i)) - Character'Pos ('A'));
+            elsif s (i) >= 'a' and then s (i) <= 'z' then
+               compressed :=
+                 compressed
+                 * 64
+                 + Compressed_Board
+                     (Character'Pos (s (i)) - Character'Pos ('a') + 26);
+            elsif s (i) >= '0' and then s (i) <= '9' then
+               compressed :=
+                 compressed
+                 * 64
+                 + Compressed_Board
+                     (Character'Pos (s (i)) - Character'Pos ('0') + 52);
+            elsif s (i) = '+' then
+               compressed := compressed * 64 + Compressed_Board (62);
+            elsif s (i) = '/' then
+               compressed := compressed * 64 + Compressed_Board (63);
+            else
+               Ada.Text_IO.Put_Line
+                 ("Illegal character in base64 string: " & s (i)'Image);
+               raise Constraint_Error;
+            end if;
+         end loop;
+         return compressed;
+      end;
+   end DeBase64;
+
 end Board;
