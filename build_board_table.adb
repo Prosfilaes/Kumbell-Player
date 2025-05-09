@@ -21,11 +21,12 @@ procedure Build_Board_Table is
    is
       new_b : Board.Game_State := b;
       sms   : Spot_Move_Score;
+      cb : Compressed_Board;
    begin
       if depth = 0 then
          pragma Assert (Is_Legal_Board (b));
          if not Game_Over (b) then
-                        cb := Compress (new_board);
+            cb := Compress (b);
             if Move_Book.Is_Book_Move (cb) then
                sms := Move_Book.Get_Move (cb, b.curr_player);
             else
