@@ -25,7 +25,12 @@ procedure Build_Board_Table is
       if depth = 0 then
          pragma Assert (Is_Legal_Board (b));
          if not Game_Over (b) then
-            sms := Alpha_Beta.Best_Move (b, 22);
+                        cb := Compress (new_board);
+            if Move_Book.Is_Book_Move (cb) then
+               sms := Move_Book.Get_Move (cb, b.curr_player);
+            else
+               sms := Alpha_Beta.Best_Move (b, 22);
+            end if;
             if sms.est_score = 127 then
                Put_Line
                  (Compress_Base64 (Compress (b))
