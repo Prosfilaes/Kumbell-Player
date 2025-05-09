@@ -3,6 +3,7 @@ pragma Restrictions (No_Obsolescent_Features);
 with Board;       use Board;
 with Alpha_Beta;
 with Ada.Text_IO; use Ada.Text_IO;
+with Move_Book;
 
 procedure Build_Board_Table is
 
@@ -15,9 +16,11 @@ procedure Build_Board_Table is
        and then player1_score <= 36
        and then player2_score <= 36;
 
-   procedure Print_Chunk_Rec (b : Board.Game_State; depth : Integer; min_spot : Board_Spot) is
+   procedure Print_Chunk_Rec
+     (b : Board.Game_State; depth : Integer; min_spot : Board_Spot)
+   is
       new_b : Board.Game_State := b;
-      sms : Spot_Move_Score;
+      sms   : Spot_Move_Score;
    begin
       if depth = 0 then
          pragma Assert (Is_Legal_Board (b));
@@ -29,7 +32,10 @@ procedure Build_Board_Table is
                   & " 1 "
                   & Board_Spot'Image (sms.move));
             elsif sms.est_score = -127 then
-               Put_Line (Compress_Base64 (Compress (b)) & " 2 ");
+               Put_Line
+                 (Compress_Base64 (Compress (b))
+                  & " 2 "
+                  & Board_Spot'Image (sms.move));
             elsif sms.est_score = 0 then
                Put_Line
                  (Compress_Base64 (Compress (b))
@@ -57,12 +63,19 @@ procedure Build_Board_Table is
    procedure Print_Chunk
      (player1_score : Piece_Count; player2_score : Piece_Count)
    is
-      depth : constant Integer := 72 - (Integer(player1_score) + Integer(player2_score));
+      depth : constant Integer :=
+        72 - (Integer (player1_score) + Integer (player2_score));
       b     : Board.Game_State;
    begin
       Put_Line ("");
-      Put_Line ("== " & depth'Image & " pieces on the board and " &
-                player1_score'Image & " vs " & player2_score'Image & " ==");
+      Put_Line
+        ("== "
+         & depth'Image
+         & " pieces on the board and "
+         & player1_score'Image
+         & " vs "
+         & player2_score'Image
+         & " ==");
       b.curr_player := 1;
       b.store (1) := player1_score;
       b.store (2) := player2_score;
@@ -73,6 +86,10 @@ procedure Build_Board_Table is
    end Print_Chunk;
 
 begin
+   if not Move_Book.Load_Book ("move_book.table") then
+      Put_Line ("Failed to load move book");
+   end if;
+
    Print_Chunk (36, 34);
    Print_Chunk (34, 36);
 
@@ -80,15 +97,16 @@ begin
    Print_Chunk (34, 34);
    Print_Chunk (32, 36);
 
-   Print_Chunk (36, 30);
-   Print_Chunk (34, 32);
-   Print_Chunk (32, 34);
-   Print_Chunk (30, 36);
+   if false then
+      Print_Chunk (36, 30);
+      Print_Chunk (34, 32);
+      Print_Chunk (32, 34);
+      Print_Chunk (30, 36);
 
-   Print_Chunk (36, 28);
-   Print_Chunk (34, 30);
-   Print_Chunk (32, 32);
-   Print_Chunk (30, 34);
-   Print_Chunk (28, 36);
-
+      Print_Chunk (36, 28);
+      Print_Chunk (34, 30);
+      Print_Chunk (32, 32);
+      Print_Chunk (30, 34);
+      Print_Chunk (28, 36);
+   end if;
 end Build_Board_Table;

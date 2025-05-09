@@ -1,4 +1,5 @@
-with Player; use Player;
+with Player;    use Player;
+with Move_Book; use Move_Book;
 
 package body Alpha_Beta is
 
@@ -18,13 +19,11 @@ package body Alpha_Beta is
       return ret_score;
    end evaluate;
 
-   function Negamax
-     (board : Game_State; depth : Integer)
-      return Score
-   is
+   function Negamax (board : Game_State; depth : Integer) return Score is
       best_score : Score;
       new_board  : Game_State;
       this_score : Score;
+      cb         : Compressed_Board;
    begin
       if depth = 0 or else Game_Over (board) then
          return Evaluate (board);
@@ -33,8 +32,12 @@ package body Alpha_Beta is
       for m in Board_Spot'(1) .. 12 loop
          if is_legal_move (board, m) then
             new_board := Move (board, m);
-            this_score :=
-              -Negamax (new_board, depth - 1);
+            cb := Compress (new_board);
+            if Move_Book.Is_Book_Move (cb) then
+               this_score := Move_Book.Get_Score (cb);
+            else
+               this_score := -Negamax (new_board, depth - 1);
+            end if;
             best_score := Score'Max (best_score, this_score);
          end if;
       end loop;
@@ -49,6 +52,7 @@ package body Alpha_Beta is
       new_board  : Game_State;
       this_score : Score;
       new_alpha  : Score := alpha;
+      cb : Compressed_Board;
    begin
       if depth = 0 or else Game_Over (board) then
          return Evaluate (board);
@@ -57,10 +61,15 @@ package body Alpha_Beta is
       for m in Board_Spot'(1) .. 12 loop
          if is_legal_move (board, m) then
             new_board := Move (board, m);
-            this_score :=
-              -Alpha_Beta_Search (new_board, depth - 1, -beta, -new_alpha);
+            cb := Compress (new_board);
+            if Move_Book.Is_Book_Move (cb) then
+               this_score := Move_Book.Get_Score (cb);
+            else
+               this_score :=
+                 -Alpha_Beta_Search (new_board, depth - 1, -beta, -new_alpha);
+            end if;
             if this_score >= beta then
-                return this_score;
+               return this_score;
             end if;
             best_score := Score'Max (best_score, this_score);
             new_alpha := Score'Max (new_alpha, this_score);
@@ -72,7 +81,8 @@ package body Alpha_Beta is
       return best_score;
    end;
 
-   function Best_Move (b : Game_State; depth : Integer) return Spot_Move_Score is
+   function Best_Move (b : Game_State; depth : Integer) return Spot_Move_Score
+   is
       best_score : Score := -127;
       best_move  : Board_Spot := 1;
       new_board  : Game_State;
@@ -91,7 +101,9 @@ package body Alpha_Beta is
       return Spot_Move_Score'(best_move, best_score);
    end Best_Move;
 
-   function Best_Move_Negamax (b : Game_State; depth : Integer) return Spot_Move_Score is
+   function Best_Move_Negamax
+     (b : Game_State; depth : Integer) return Spot_Move_Score
+   is
       best_score : Score := -127;
       best_move  : Board_Spot := 1;
       new_board  : Game_State;

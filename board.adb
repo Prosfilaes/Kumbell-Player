@@ -210,8 +210,8 @@ package body Board is
       new_board : Game_State := Initialize;
    begin
       for i in Board_Spot'(1) .. 6 loop
-         new_board.board (i) := b.board (7 + i);
-         new_board.board (7 + i) := b.board (i);
+         new_board.board (i) := b.board (6 + i);
+         new_board.board (6 + i) := b.board (i);
       end loop;
       new_board.store (1) := b.store (2);
       new_board.store (2) := b.store (1);
