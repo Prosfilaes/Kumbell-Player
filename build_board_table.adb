@@ -25,7 +25,7 @@ procedure Build_Board_Table is
       if depth = 0 then
          pragma Assert (Is_Legal_Board (b));
          if not Game_Over (b) then
-            sms := Alpha_Beta.Best_Move (b, 16);
+            sms := Alpha_Beta.Best_Move (b, 22);
             if sms.est_score = 127 then
                Put_Line
                  (Compress_Base64 (Compress (b))
@@ -84,10 +84,30 @@ procedure Build_Board_Table is
       end loop;
       Print_Chunk_Rec (b, depth, 1);
    end Print_Chunk;
-
+   -- 0  1  1  0  0  0
+   --<---
+   --0  1  1  0  0  0
+   -- Player 1:  36 Player 2:  32 Player to move:  2
+   b : Board.Game_State;
 begin
    if not Move_Book.Load_Book ("move_book.table") then
       Put_Line ("Failed to load move book");
+   end if;
+   if false then
+      b.curr_player := 2;
+      b.store (1) := 36;
+      b.store (2) := 32;
+      for i in Board_Spot'(1) .. 12 loop
+         b.board (i) := 0;
+      end loop;
+      b.board (2) := 1;
+      b.board (3) := 1;
+      b.board (10) := 1;
+      b.board (11) := 1;
+      Ada.Text_IO.Put_Line (To_String (b));
+      Ada.Text_IO.Put_Line (Alpha_Beta.Best_Move (b, 16)'Image);
+      Ada.Text_IO.Put_Line (Move_Book.Get_Move (Compress (b), 2)'Image);
+      return;
    end if;
 
    Print_Chunk (36, 34);
@@ -97,16 +117,21 @@ begin
    Print_Chunk (34, 34);
    Print_Chunk (32, 36);
 
-   if false then
-      Print_Chunk (36, 30);
-      Print_Chunk (34, 32);
-      Print_Chunk (32, 34);
-      Print_Chunk (30, 36);
+   Print_Chunk (36, 30);
+   Print_Chunk (34, 32);
+   Print_Chunk (32, 34);
+   Print_Chunk (30, 36);
 
-      Print_Chunk (36, 28);
-      Print_Chunk (34, 30);
-      Print_Chunk (32, 32);
-      Print_Chunk (30, 34);
-      Print_Chunk (28, 36);
-   end if;
+   Print_Chunk (36, 28);
+   Print_Chunk (34, 30);
+   Print_Chunk (32, 32);
+   Print_Chunk (30, 34);
+   Print_Chunk (28, 36);
+
+   for i in Piece_Count'(26) .. 36 loop
+      if i mod 2 = 0 then
+         Print_Chunk (i, 62 - i);
+      end if;
+   end loop;
+
 end Build_Board_Table;

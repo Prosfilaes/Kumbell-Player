@@ -1,3 +1,4 @@
+with Ada.Text_IO;
 with Player;    use Player;
 with Move_Book; use Move_Book;
 
@@ -51,8 +52,9 @@ package body Alpha_Beta is
       best_score : Score;
       new_board  : Game_State;
       this_score : Score;
+      book_score : Score;
       new_alpha  : Score := alpha;
-      cb : Compressed_Board;
+      cb         : Compressed_Board;
    begin
       if depth = 0 or else Game_Over (board) then
          return Evaluate (board);
@@ -62,11 +64,11 @@ package body Alpha_Beta is
          if is_legal_move (board, m) then
             new_board := Move (board, m);
             cb := Compress (new_board);
-            if Move_Book.Is_Book_Move (cb) then
-               this_score := Move_Book.Get_Score (cb);
-            else
-               this_score :=
-                 -Alpha_Beta_Search (new_board, depth - 1, -beta, -new_alpha);
+            if new_board.curr_player = 2 or else not Move_Book.Is_Book_Move (cb) then
+            this_score :=
+              -Alpha_Beta_Search (new_board, depth - 1, -beta, -new_alpha);
+              else
+               this_score := -Move_Book.Get_Score (cb);
             end if;
             if this_score >= beta then
                return this_score;

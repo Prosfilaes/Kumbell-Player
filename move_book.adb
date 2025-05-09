@@ -80,9 +80,9 @@ package body Move_Book is
             end;
          end loop;
          Ada.Text_IO.Close (File);
-      --exception
-      --   when others =>
-      --      return False;
+      exception
+         when others =>
+            return False;
       end;
       return True;
    end Load_Book;
@@ -102,7 +102,7 @@ package body Move_Book is
    begin
       if p = 2 then
          -- Swap the move for player 2
-         sms.move := Board_Spot (7 + sms.move);
+         sms.move := Board_Spot (6 + sms.move);
       end if;
       return sms;
    end Get_Move;
