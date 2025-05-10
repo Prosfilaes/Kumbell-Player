@@ -36,6 +36,7 @@ package body Move_Book is
       Ada.Integer_Text_IO.Get (s(start_pos + 1 .. s'Last), i, start_pos);
       spot_move := Board_Spot (i);
       sms.move := spot_move;
+      sms.exact := True;
       case new_score is
          when 1 =>
             sms.est_score := 127;

@@ -21,7 +21,7 @@ procedure Build_Board_Table is
    is
       new_b : Board.Game_State := b;
       sms   : Spot_Move_Score;
-      cb : Compressed_Board;
+      cb    : Compressed_Board;
    begin
       if depth = 0 then
          pragma Assert (Is_Legal_Board (b));
@@ -32,21 +32,25 @@ procedure Build_Board_Table is
             else
                sms := Alpha_Beta.Best_Move (b, 22);
             end if;
-            if sms.est_score = 127 then
-               Put_Line
-                 (Compress_Base64 (Compress (b))
-                  & " 1 "
-                  & Board_Spot'Image (sms.move));
-            elsif sms.est_score = -127 then
-               Put_Line
-                 (Compress_Base64 (Compress (b))
-                  & " 2 "
-                  & Board_Spot'Image (sms.move));
-            elsif sms.est_score = 0 then
-               Put_Line
-                 (Compress_Base64 (Compress (b))
-                  & " 0 "
-                  & Board_Spot'Image (sms.move));
+            if sms.exact then
+               if sms.est_score = 127 then
+                  Put_Line
+                    (Compress_Base64 (Compress (b))
+                     & " 1 "
+                     & Board_Spot'Image (sms.move));
+               elsif sms.est_score = -127 then
+                  Put_Line
+                    (Compress_Base64 (Compress (b))
+                     & " 2 "
+                     & Board_Spot'Image (sms.move));
+               elsif sms.est_score = 0 then
+                  Put_Line
+                    (Compress_Base64 (Compress (b))
+                     & " 0 "
+                     & Board_Spot'Image (sms.move));
+               else
+                  raise Constraint_Error;
+               end if;
             else
                Put_Line
                  ("*** Didn't conclude -"

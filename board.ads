@@ -63,5 +63,6 @@ package Board is
    type Spot_Move_Score is record
       move      : Board_Spot;
       est_score : Score;
+      exact: Boolean := False;
    end record;
 end Board;
