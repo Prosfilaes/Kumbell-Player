@@ -140,4 +140,10 @@ begin
       end if;
    end loop;
 
+   for i in Piece_Count'(24) .. 36 loop
+      if i mod 2 = 0 then
+         Print_Chunk (i, 60 - i);
+      end if;
+   end loop;
+
 end Build_Board_Table;
