@@ -59,10 +59,13 @@ package Board is
    function DeBase64 (s : String) return Compressed_Board
    with Pre => s'Length = 12;
 
+   function Rotate_Board
+     (b : Game_State; switch_player : Boolean := False) return Game_State;
+
    type Score is range -127 .. 127;
    type Spot_Move_Score is record
       move      : Board_Spot;
       est_score : Score;
-      exact: Boolean := False;
+      exact     : Boolean := False;
    end record;
 end Board;

@@ -1,4 +1,4 @@
-with Player;    use Player;
+with Player; use Player;
 with Move_Book;
 
 package body Alpha_Beta is
@@ -8,17 +8,28 @@ package body Alpha_Beta is
       exact     : Boolean := False;
    end record;
 
-   function Evaluate (board : Game_State) return Score_with_Exact is
+   function Evaluate (b : Game_State) return Score_with_Exact is
       ret_score : Score_with_Exact;
+      winner    : Integer;
    begin
-      if board.store (board.curr_player) >= 37 then
-         return Score_with_Exact'(127, True);
-      elsif board.store (Next (board.curr_player)) >= 37 then
-         return Score_with_Exact'(-127, True);
+      if Game_Over (b) then
+         winner := Board.Winner (b);
+         if winner = 0 then
+            ret_score.est_score := 0;
+         elsif (b.curr_player = 1 and then winner = -1)
+           or else (b.curr_player = 2 and then winner = 1)
+         then
+            ret_score.est_score := 127;
+         else
+            -- (Winner = -1 and p = 2) or (winner = 1 and p = 1)
+            ret_score.est_score := -127;
+         end if;
+         ret_score.exact := True;
+         return ret_score;
       end if;
       ret_score.est_score :=
-        Score (board.store (board.curr_player))
-        - Score (board.store (Next (board.curr_player)));
+        Score (b.store (b.curr_player))
+        - Score (b.store (Next (b.curr_player)));
       return ret_score;
    end evaluate;
 
@@ -39,17 +50,19 @@ package body Alpha_Beta is
       for m in Board_Spot'(1) .. 12 loop
          if is_legal_move (board, m) then
             new_board := Move (board, m);
-            cb := Compress (new_board);
-            if new_board.curr_player = 2
-              or else not Move_Book.Is_Book_Move (cb)
+            if new_board.curr_player = 1 then
+               cb := Compress (new_board);
+            end if;
+            if new_board.curr_player = 1 and then Move_Book.Is_Book_Move (cb)
             then
+               this_score.est_score := -Move_Book.Get_Score (cb);
+               this_score.exact := True;
+            else
                this_score :=
                  Alpha_Beta_Search (new_board, depth - 1, -beta, -new_alpha);
                this_score.est_score := -this_score.est_score;
-            else
-               this_score.est_score := -Move_Book.Get_Score (cb);
-               this_score.exact := True;
             end if;
+
             if this_score.est_score >= beta then
                return this_score;
             end if;
@@ -80,16 +93,17 @@ package body Alpha_Beta is
             new_board := move (b, m);
             new_score := alpha_beta_search (new_board, depth - 1, -127, 127);
             new_score.est_score := -new_score.est_score;
-            if new_score.est_score > best_score.est_score or else
-               (new_score.est_score = best_score.est_score
-                and then new_score.exact)
+            if new_score.est_score > best_score.est_score
+              or else (new_score.est_score = best_score.est_score
+                       and then new_score.exact)
             then
                best_score := new_score;
                best_move := m;
             end if;
          end if;
       end loop;
-      return Spot_Move_Score'(best_move, best_score.est_score, best_score.exact);
+      return
+        Spot_Move_Score'(best_move, best_score.est_score, best_score.exact);
    end Best_Move;
 
 end Alpha_Beta;

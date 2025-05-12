@@ -90,24 +90,34 @@ package body Board is
    end Move;
 
    function Game_Over (b : Game_State) return Boolean is
+      p1, p2 : Piece_Count;
    begin
       if b.store (1) >= 37 or else b.store (2) >= 37 then
          return true;
       end if;
+      -- Special case some end game positions so the AI doesn't get stuck
+      p1 :=
+        b.board (1)
+        + b.board (2)
+        + b.board (3)
+        + b.board (4)
+        + b.board (5)
+        + b.board (6);
+      p2 :=
+        b.board (7)
+        + b.board (8)
+        + b.board (9)
+        + b.board (10)
+        + b.board (11)
+        + b.board (12);
+      -- If player 1 is on the move and player 2 has no pieces,
+      -- and player 1 can make a move that doesn't matter, player 1
+      -- can sweep the remaining pieces. And vice versa.
       if b.curr_player = 1 then
-         for i in Board_Spot'(1) .. 6 loop
-            if b.board (i) /= 0 then
-               return false;
-            end if;
-         end loop;
+         return (p1 = 0) or else (p2 = 0 and p1 - b.board (1) /= 0);
       else
-         for i in Board_Spot'(7) .. 12 loop
-            if b.board (i) /= 0 then
-               return false;
-            end if;
-         end loop;
+         return (p2 = 0) or else (p1 = 0 and p2 - b.board (7) /= 0);
       end if;
-      return true;
    end Game_Over;
 
    function Winner (b : Game_State) return Integer is
@@ -235,13 +245,15 @@ package body Board is
 
    function Compress (b : Game_State) return Compressed_Board is
       compressed : Compressed_Board := 0;
-      new_b      : Game_State := b;
    begin
-      if new_b.curr_player = 2 then
-         new_b := Rotate_Board (new_b, True);
+      if b.curr_player = 2 then
+         raise Constraint_Error
+           with "Compress: Player 2 is not allowed to compress";
+      -- This isn't working yet
+
       end if;
       for i in Board_Spot'(1) .. 12 loop
-         compressed := compressed * 16 + Compressed_Board (new_b.board (i));
+         compressed := compressed * 16 + Compressed_Board (b.board (i));
       end loop;
       compressed := compressed * 64 + Compressed_Board (b.store (1));
       compressed := compressed * 64 + Compressed_Board (b.store (2));
