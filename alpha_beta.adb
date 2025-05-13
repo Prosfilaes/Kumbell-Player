@@ -42,9 +42,47 @@ package body Alpha_Beta is
       this_score : Score_with_Exact;
       new_alpha  : Score := alpha;
       cb         : Compressed_Board;
+      p          : Piece_Count;
    begin
       if depth = 0 or else Game_Over (board) then
          return Evaluate (board);
+      end if;
+      if board.curr_player = 2 then
+         p :=
+           board.board (1)
+           + board.board (2)
+           + board.board (3)
+           + board.board (4)
+           + board.board (5)
+           + board.board (6);
+         if p = 0 then
+            for m in Board_Spot'(8) .. 12 loop
+               if board.board (m) /= 0 then
+                  new_board := Move (board, m);
+                  this_score := Alpha_Beta_Search (new_board, depth - 1, -beta, -new_alpha);
+                  this_score.est_score := -this_score.est_score;
+                  return this_score;
+               end if;
+            end loop;
+         end if;
+      else
+         p :=
+           board.board (7)
+           + board.board (8)
+           + board.board (9)
+           + board.board (10)
+           + board.board (11)
+           + board.board (12);
+         if p = 0 then
+            for m in Board_Spot'(2) .. 6 loop
+               if board.board (m) /= 0 then
+                  new_board := Move (board, m);
+                  this_score := Alpha_Beta_Search (new_board, depth - 1, -beta, -new_alpha);
+                  this_score.est_score := -this_score.est_score;
+                  return this_score;
+               end if;
+            end loop;
+         end if;
       end if;
       best_score.est_score := -127;
       for m in Board_Spot'(1) .. 12 loop

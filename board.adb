@@ -90,33 +90,29 @@ package body Board is
    end Move;
 
    function Game_Over (b : Game_State) return Boolean is
-      p1, p2 : Piece_Count;
+      p : Piece_Count;
    begin
       if b.store (1) >= 37 or else b.store (2) >= 37 then
          return true;
       end if;
-      -- Special case some end game positions so the AI doesn't get stuck
-      p1 :=
-        b.board (1)
-        + b.board (2)
-        + b.board (3)
-        + b.board (4)
-        + b.board (5)
-        + b.board (6);
-      p2 :=
-        b.board (7)
-        + b.board (8)
-        + b.board (9)
-        + b.board (10)
-        + b.board (11)
-        + b.board (12);
-      -- If player 1 is on the move and player 2 has no pieces,
-      -- and player 1 can make a move that doesn't matter, player 1
-      -- can sweep the remaining pieces. And vice versa.
       if b.curr_player = 1 then
-         return (p1 = 0) or else (p2 = 0 and p1 - b.board (1) /= 0);
+         p :=
+           b.board (1)
+           + b.board (2)
+           + b.board (3)
+           + b.board (4)
+           + b.board (5)
+           + b.board (6);
+         return p = 0;
       else
-         return (p2 = 0) or else (p1 = 0 and p2 - b.board (7) /= 0);
+         p :=
+           b.board (7)
+           + b.board (8)
+           + b.board (9)
+           + b.board (10)
+           + b.board (11)
+           + b.board (12);
+         return p = 0;
       end if;
    end Game_Over;
 
@@ -150,6 +146,8 @@ package body Board is
             return Move (b, i);
          end if;
       end loop;
+      raise Constraint_Error
+        with "First_Move: No legal moves available";
    end First_Move;
 
    function Every_Move (b : Game_State) return Board_List is

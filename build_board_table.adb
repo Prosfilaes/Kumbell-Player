@@ -31,7 +31,7 @@ procedure Build_Board_Table is
             if Move_Book.Is_Book_Move (cb) then
                sms := Move_Book.Get_Move (cb, b.curr_player);
             else
-               sms := Alpha_Beta.Best_Move (b, 22);
+               sms := Alpha_Beta.Best_Move (b, 16);
             end if;
             if sms.exact then
                if sms.est_score = 127 then
@@ -130,4 +130,5 @@ begin
          Print_Chunk (i, 60 - i);
       end if;
    end loop;
+
 end Build_Board_Table;
