@@ -9,22 +9,38 @@ procedure Two_Player is
 begin
    while num_moves < 100 loop
       num_moves := num_moves + 1;
-      if False then
-         b := First_Move (b);
-      end if;
-      Put_Line ("Move " & num_moves'Image);
-      if Game_Over (b) then
-         Put_Line ("Winner: " & Winner (b)'Image);
-         exit;
-      end if;
+      Put_Line
+        ("Move "
+         & num_moves'Image
+         & " Player "
+         & b.curr_player'Image
+         & " to move");
       ab_move := Alpha_Beta.Best_Move (b, 20);
       if ab_move.exact then
-         Put_Line ("Best move: " & Board_Spot'Image (ab_move.move));
-         Put_Line ("Score: " & ab_move.est_score'Image);
+         Put_Line ("Optimal move found");
       else
-         Put_Line ("No best move found");
+         Put_Line ("No optimal move found");
       end if;
+      Put_Line ("Best move: " & Board_Spot'Image (ab_move.move));
+      Put_Line ("Score: " & ab_move.est_score'Image);
       b := Move (b, ab_move.move);
       Put_Line (To_String (b));
+      if Game_Over (b) then
+         Put_Line ("Game over!");
+         case Winner (b) is
+            when 0 =>
+               Put_Line ("Draw");
+
+            when -1 =>
+               Put_Line ("Player 1 wins");
+
+            when 1 =>
+               Put_Line ("Player 2 wins");
+            when others =>
+               Put_Line ("Unknown winner");
+               raise Constraint_Error with "Unknown winner" & Winner (b)'Image;
+         end case;
+         exit;
+      end if;
    end loop;
 end Two_Player;
