@@ -15,6 +15,13 @@ package Board is
 
    type Board_List is array (Integer range <>) of Game_State;
 
+   type Score is range -127 .. 127;
+   type Spot_Move_Score is record
+      move      : Board_Spot;
+      est_score : Score;
+      exact     : Boolean := False;
+   end record;
+
    function Initialize return Game_State;
 
    function Is_Legal_Move (b : Game_State; spot : Board_Spot) return Boolean;
@@ -62,10 +69,4 @@ package Board is
    function Rotate_Board
      (b : Game_State; switch_player : Boolean := False) return Game_State;
 
-   type Score is range -127 .. 127;
-   type Spot_Move_Score is record
-      move      : Board_Spot;
-      est_score : Score;
-      exact     : Boolean := False;
-   end record;
 end Board;

@@ -1,7 +1,11 @@
+with Ada.Text_IO;
 with Player; use Player;
 with Move_Book;
 
 package body Alpha_Beta is
+
+   Move_Book_On : Boolean := False;
+   New_Book     : Ada.Text_IO.File_Type;
 
    type Score_with_Exact is record
       est_score : Score;
@@ -34,8 +38,11 @@ package body Alpha_Beta is
    end evaluate;
 
    function Alpha_Beta_Search
-     (board : Game_State; depth : Integer; alpha : Score; beta : Score)
-      return Score_with_Exact
+     (board        : Game_State;
+      depth        : Integer;
+      alpha        : Score;
+      beta         : Score;
+      Move_Book_On : Boolean := False) return Score_with_Exact
    is
       best_score : Score_with_Exact;
       new_board  : Game_State;
@@ -59,7 +66,9 @@ package body Alpha_Beta is
             for m in Board_Spot'(8) .. 12 loop
                if board.board (m) /= 0 then
                   new_board := Move (board, m);
-                  this_score := Alpha_Beta_Search (new_board, depth - 1, -beta, -new_alpha);
+                  this_score :=
+                    Alpha_Beta_Search
+                      (new_board, depth - 1, -beta, -new_alpha);
                   this_score.est_score := -this_score.est_score;
                   return this_score;
                end if;
@@ -77,7 +86,9 @@ package body Alpha_Beta is
             for m in Board_Spot'(2) .. 6 loop
                if board.board (m) /= 0 then
                   new_board := Move (board, m);
-                  this_score := Alpha_Beta_Search (new_board, depth - 1, -beta, -new_alpha);
+                  this_score :=
+                    Alpha_Beta_Search
+                      (new_board, depth - 1, -beta, -new_alpha);
                   this_score.est_score := -this_score.est_score;
                   return this_score;
                end if;
@@ -85,6 +96,7 @@ package body Alpha_Beta is
          end if;
       end if;
       best_score.est_score := -127;
+
       for m in Board_Spot'(1) .. 12 loop
          if is_legal_move (board, m) then
             new_board := Move (board, m);
@@ -102,6 +114,12 @@ package body Alpha_Beta is
             end if;
 
             if this_score.est_score >= beta then
+                           if Move_Book_On
+                 and then board.curr_player = 1
+                 and then Is_Compressable (board)
+               then
+                  Move_Book.Add_Move (New_Book, board, depth);
+               end if;
                return this_score;
             end if;
             if this_score.est_score > best_score.est_score
@@ -111,25 +129,36 @@ package body Alpha_Beta is
                best_score := this_score;
             end if;
             new_alpha := Score'Max (new_alpha, this_score.est_score);
-            if new_alpha >= beta then
-               return best_score;
-            end if;
          end if;
       end loop;
+      if Move_Book_On and then board.curr_player = 1 then
+         Move_Book.Add_Move (New_Book, board, depth);
+      end if;
       return best_score;
    end;
 
-   function Best_Move (b : Game_State; depth : Integer) return Spot_Move_Score
+   function Best_Move
+     (b : Game_State; depth : Integer; Emit_Move_Book : Boolean := False)
+      return Spot_Move_Score
    is
       best_score : Score_with_Exact := Score_with_Exact'(-127, False);
       best_move  : Board_Spot := 1;
       new_board  : Game_State;
       new_score  : Score_with_Exact;
    begin
+      if Emit_Move_Book then
+         if not Move_Book_On then
+            Move_Book_On := True;
+            Ada.Text_IO.Create
+              (New_Book, Ada.Text_IO.Append_File, "aux_move_book.table");
+         end if;
+      end if;
       for m in Board_Spot'Range loop
          if Is_Legal_Move (b, m) then
             new_board := move (b, m);
-            new_score := alpha_beta_search (new_board, depth - 1, -127, 127);
+            new_score :=
+              alpha_beta_search
+                (new_board, depth - 1, -127, 127, Emit_Move_Book);
             new_score.est_score := -new_score.est_score;
             if new_score.est_score > best_score.est_score
               or else (new_score.est_score = best_score.est_score

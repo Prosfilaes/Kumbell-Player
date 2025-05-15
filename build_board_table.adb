@@ -97,9 +97,7 @@ procedure Build_Board_Table is
    end Print_Chunk;
 
 begin
-   if not Move_Book.Load_Book ("move_book.table") then
-      Put_Line ("Failed to load move book");
-   end if;
+   Move_Book.Load_Book ("move_book.table");
 
    Print_Chunk (36, 34);
    Print_Chunk (34, 36);
@@ -136,5 +134,24 @@ begin
          Print_Chunk (i, 58 - i);
       end if;
    end loop;
+
+   -- Make it easier to prove winning conditions
+   Print_Chunk (36, 20);
+   Print_Chunk (36, 18);
+   Print_Chunk (36, 16);
+
+   -- Make it easier to prove losing conditions
+   Print_Chunk (20, 36);
+   Print_Chunk (18, 36);
+   Print_Chunk (16, 36);
+
+   if (false) then
+      Print_Chunk (34, 18);
+      Print_Chunk (18, 34);
+      Print_Chunk (34, 16);
+      Print_Chunk (16, 34);
+      Print_Chunk (32, 16);
+      Print_Chunk (16, 32);
+   end if;
 
 end Build_Board_Table;

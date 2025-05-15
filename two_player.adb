@@ -20,7 +20,7 @@ begin
             & " Player "
             & b.curr_player'Image
             & " to move");
-         ab_move := Alpha_Beta.Best_Move (b, ab_depth);
+         ab_move := Alpha_Beta.Best_Move (b, ab_depth, true);
          if ab_move.exact then
             Put_Line ("Optimal move found");
          else

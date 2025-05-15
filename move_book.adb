@@ -1,8 +1,8 @@
 with Ada.Integer_Text_IO;
-with Ada.Text_IO;
 with Ada.Containers;
 with Ada.Containers.Hashed_Maps;
 with Player; use Player;
+with Alpha_Beta;
 
 package body Move_Book is
    function Hash (board : Compressed_Board) return Ada.Containers.Hash_Type is
@@ -30,10 +30,10 @@ package body Move_Book is
       new_score : Score;
       start_pos : Positive := 1;
       i         : Integer;
-   begin  
+   begin
       Ada.Integer_Text_IO.Get (s, i, start_pos);
       new_score := Score (i);
-      Ada.Integer_Text_IO.Get (s(start_pos + 1 .. s'Last), i, start_pos);
+      Ada.Integer_Text_IO.Get (s (start_pos + 1 .. s'Last), i, start_pos);
       spot_move := Board_Spot (i);
       sms.move := spot_move;
       sms.exact := True;
@@ -54,7 +54,7 @@ package body Move_Book is
       return sms;
    end Get_Spot_Move_Score;
 
-   function Load_Book (filename : String) return Boolean is
+   procedure Load_Book (filename : String) is
    begin
       declare
          File : Ada.Text_IO.File_Type;
@@ -76,16 +76,23 @@ package body Move_Book is
                then
                   Cb := DeBase64 (Line (1 .. 12));
                   S := Get_Spot_Move_Score (Line (14 .. Line'Last));
-                  Game_Book.Insert (Cb, S);
+                  if not Game_Book.Contains (Cb) then
+                     Game_Book.Insert (Cb, S);
+                  else
+                     Ada.Text_IO.Put_Line
+                       (Ada.Text_IO.Standard_Error,
+                        "Duplicate entry in book: "
+                        & Compress_Base64 (Cb)
+                        & " "
+                        & Line (14 .. Line'Last));
+                  end if;
                end if;
             end;
          end loop;
          Ada.Text_IO.Close (File);
-      exception
-         when others =>
-            return False;
+
       end;
-      return True;
+      return;
    end Load_Book;
 
    function Is_Book_Move (cb : Compressed_Board) return Boolean is
@@ -98,7 +105,9 @@ package body Move_Book is
       return Game_Book.Element (cb).est_score;
    end Get_Score;
 
-   function Get_Move (cb : Compressed_Board; p : Player.Player) return Spot_Move_Score is
+   function Get_Move
+     (cb : Compressed_Board; p : Player.Player) return Spot_Move_Score
+   is
       sms : Spot_Move_Score := Game_Book.Element (cb);
    begin
       if p = 2 then
@@ -107,5 +116,51 @@ package body Move_Book is
       end if;
       return sms;
    end Get_Move;
+
+   procedure Add_Move
+     (f : Ada.Text_IO.File_Type; b : Game_State; depth : Integer)
+   is
+      cb  : constant Compressed_Board := Compress (b);
+      sms : Spot_Move_Score;
+   begin
+      if Move_Book.Is_Book_Move (cb) then
+         return;
+      -- sms := Move_Book.Get_Move (cb, b.curr_player);
+
+      else
+         sms := Alpha_Beta.Best_Move (b, depth, True);
+      end if;
+      if sms.exact then
+         Game_Book.Insert (cb, sms);
+         if sms.est_score = 127 then
+            Ada.Text_IO.Put_Line
+              (f,
+               Compress_Base64 (Compress (b))
+               & " 1 "
+               & Board_Spot'Image (sms.move));
+         elsif sms.est_score = -127 then
+            Ada.Text_IO.Put_Line
+              (f,
+               Compress_Base64 (Compress (b))
+               & " 2 "
+               & Board_Spot'Image (sms.move));
+         elsif sms.est_score = 0 then
+            Ada.Text_IO.Put_Line
+              (f,
+               Compress_Base64 (Compress (b))
+               & " 0 "
+               & Board_Spot'Image (sms.move));
+         else
+            raise Constraint_Error;
+         end if;
+      else
+         Ada.Text_IO.Put_Line
+           (f,
+            "*** Didn't conclude -"
+            & Compress_Base64 (Compress (b))
+            & " "
+            & sms.est_score'Image);
+      end if;
+   end Add_Move;
 
 end Move_Book;
