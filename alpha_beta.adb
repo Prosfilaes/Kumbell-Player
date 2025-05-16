@@ -114,11 +114,11 @@ package body Alpha_Beta is
             end if;
 
             if this_score.est_score >= beta then
-                           if Move_Book_On
+               if Move_Book_On
                  and then board.curr_player = 1
                  and then Is_Compressable (board)
                then
-                  Move_Book.Add_Move (New_Book, board, depth);
+                  Move_Book.Add_Move (New_Book, board, depth + 10);
                end if;
                return this_score;
             end if;
@@ -131,8 +131,11 @@ package body Alpha_Beta is
             new_alpha := Score'Max (new_alpha, this_score.est_score);
          end if;
       end loop;
-      if Move_Book_On and then board.curr_player = 1 then
-         Move_Book.Add_Move (New_Book, board, depth);
+      if Move_Book_On
+        and then board.curr_player = 1
+        and then Is_Compressable (board)
+      then
+         Move_Book.Add_Move (New_Book, board, depth + 10);
       end if;
       return best_score;
    end;
