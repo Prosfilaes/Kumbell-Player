@@ -2,6 +2,7 @@ with Ada.Integer_Text_IO;
 with Ada.Containers;
 with Ada.Containers.Hashed_Maps;
 with Player; use Player;
+with Exact_AB;
 with Alpha_Beta;
 
 package body Move_Book is
@@ -116,6 +117,52 @@ package body Move_Book is
       end if;
       return sms;
    end Get_Move;
+
+   procedure Add_Move (f : Ada.Text_IO.File_Type; b : Game_State) is
+      cb  : constant Compressed_Board := Compress (b);
+      sms : Spot_Move_Score;
+   begin
+      if Move_Book.Is_Book_Move (cb) then
+         return;
+      end if;
+
+      begin
+         sms := Exact_AB.Best_Move (b);
+
+         Game_Book.Insert (cb, sms);
+         if sms.est_score = 127 then
+            Ada.Text_IO.Put_Line
+              (f,
+               Compress_Base64 (cb)
+               & " 1 "
+               & Board_Spot'Image (sms.move));
+         elsif sms.est_score = -127 then
+            Ada.Text_IO.Put_Line
+              (f,
+               Compress_Base64 (cb)
+               & " 2 "
+               & Board_Spot'Image (sms.move));
+         elsif sms.est_score = 0 then
+            Ada.Text_IO.Put_Line
+              (f,
+               Compress_Base64 (cb)
+               & " 0 "
+               & Board_Spot'Image (sms.move));
+         else
+            raise Constraint_Error;
+         end if;
+      exception
+         when Exact_AB.Stack_Overflow_Error =>
+            Ada.Text_IO.Put_Line
+              (f,
+               "*** Didn't conclude -"
+               & Compress_Base64 (cb)
+               & " "
+               & sms.est_score'Image 
+               & " " 
+               & To_String (b));
+      end;
+   end Add_Move;
 
    procedure Add_Move
      (f : Ada.Text_IO.File_Type; b : Game_State; depth : Integer)
