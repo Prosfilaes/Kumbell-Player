@@ -120,15 +120,25 @@ package body Board is
       player1 : Piece_Count := b.store (1);
       player2 : Piece_Count := b.store (2);
    begin
+      if player1 > 36 then
+         return -1;
+      end if;
+      if player2 > 36 then
+         return 1;
+      end if;
+      if player1 = 36 and then player2 = 36 then
+         return 0;
+      end if;
       if b.curr_player = 1 then
-         for i in Board_Spot'(1) .. 6 loop
+         for i in Board_Spot'(7) .. 12 loop
             player2 := @ + b.board (i);
          end loop;
       else
-         for i in Board_Spot'(7) .. 12 loop
+         for i in Board_Spot'(1) .. 6 loop
             player1 := @ + b.board (i);
          end loop;
       end if;
+      pragma Assert (player1 + player2 = 72);
       if player1 > player2 then
          return -1;
       elsif player1 < player2 then
@@ -172,7 +182,7 @@ package body Board is
       end;
    end Every_Move;
 
-   function To_String (b : Game_State) return String is
+   function To_Long_String (b : Game_State) return String is
       s : Ada.Strings.Unbounded.Unbounded_String;
    begin
       Append (s, "--->" & Ada.Characters.Latin_1.LF);
@@ -192,6 +202,20 @@ package body Board is
       Append (s, " Player to move: ");
       Append (s, b.curr_player'Image);
       Append (s, Ada.Characters.Latin_1.LF);
+      return To_String (s);
+   end To_Long_String;
+
+   function To_String (b : Game_State) return String is
+      s : Ada.Strings.Unbounded.Unbounded_String;
+   begin
+      Append (s, "P1:" & b.store (1)'Image & " P2:" & b.store (2)'Image);
+      Append (s, " Curr:" & b.curr_player'Image);
+      for i in Board_Spot'(1) .. 12 loop
+         if i = 1 or else i = 7 then
+            Append (s, " | ");
+         end if;
+         Append (s, b.board (i)'Image & " ");
+      end loop;
       return To_String (s);
    end To_String;
 
@@ -298,7 +322,8 @@ package body Board is
             elsif s (i) = '/' then
                compressed := compressed * 64 + Compressed_Board (63);
             else
-               raise Constraint_Error with "Illegal character in base64 string" & s(i)'Image;
+               raise Constraint_Error
+                 with "Illegal character in base64 string" & s (i)'Image;
             end if;
          end loop;
          return compressed;

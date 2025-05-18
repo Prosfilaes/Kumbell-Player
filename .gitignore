@@ -1,0 +1,13 @@
+b~*
+*.ali
+*.o
+cachegrind.*
+callgrind.*
+*.s
+*.gcno
+*.gcda
+*.gcov
+all_starts
+build_board_table
+main
+two_player

@@ -1,7 +1,6 @@
 pragma Restrictions (No_Obsolescent_Features);
 
 with Board;       use Board;
-with Alpha_Beta;
 with Ada.Text_IO; use Ada.Text_IO;
 with Move_Book;
 
@@ -20,7 +19,6 @@ procedure Build_Board_Table is
      (b : Board.Game_State; depth : Integer; min_spot : Board_Spot)
    is
       new_b : Board.Game_State;
-      sms   : Spot_Move_Score;
       cb    : Compressed_Board;
    begin
       if depth = 0 then
@@ -28,37 +26,8 @@ procedure Build_Board_Table is
          pragma Assert (Is_Legal_Board (b));
          if not Game_Over (b) then
             cb := Compress (b);
-            if Move_Book.Is_Book_Move (cb) then
-               sms := Move_Book.Get_Move (cb, b.curr_player);
-            else
-               sms := Alpha_Beta.Best_Move (b, 16);
-            end if;
-            if sms.exact then
-               if sms.est_score = 127 then
-                  Put_Line
-                    (Compress_Base64 (Compress (b))
-                     & " 1 "
-                     & Board_Spot'Image (sms.move));
-               elsif sms.est_score = -127 then
-                  Put_Line
-                    (Compress_Base64 (Compress (b))
-                     & " 2 "
-                     & Board_Spot'Image (sms.move));
-               elsif sms.est_score = 0 then
-                  Put_Line
-                    (Compress_Base64 (Compress (b))
-                     & " 0 "
-                     & Board_Spot'Image (sms.move));
-               else
-                  raise Constraint_Error;
-               end if;
-            else
-               --Put_Line (To_String (b));
-               Put_Line
-                 ("*** Didn't conclude -"
-                  & Compress_Base64 (Compress (b))
-                  & " "
-                  & sms.est_score'Image);
+            if not Move_Book.Is_Book_Move (cb) then
+               Move_Book.Add_Move (Ada.Text_IO.Standard_Output, b);
             end if;
          end if;
       else
@@ -87,13 +56,19 @@ procedure Build_Board_Table is
          & " vs "
          & player2_score'Image
          & " ==");
-      b.curr_player := 1;
-      b.store (1) := player1_score;
-      b.store (2) := player2_score;
-      for i in Board_Spot'(1) .. 12 loop
-         b.board (i) := 0;
+      -- Sometimes it doesn't get it the first time around
+      -- so after inserting values into the move book, we
+      -- try solving it again.
+      for loops in 1 .. 2 loop
+         Put_Line ("== Loop " & loops'Image & " ==");
+         b.curr_player := 1;
+         b.store (1) := player1_score;
+         b.store (2) := player2_score;
+         for i in Board_Spot'(1) .. 12 loop
+            b.board (i) := 0;
+         end loop;
+         Print_Chunk_Rec (b, depth, 1);
       end loop;
-      Print_Chunk_Rec (b, depth, 1);
    end Print_Chunk;
 
 begin
@@ -135,17 +110,17 @@ begin
       end if;
    end loop;
 
-   -- Make it easier to prove winning conditions
-   Print_Chunk (36, 20);
-   Print_Chunk (36, 18);
-   Print_Chunk (36, 16);
-
-   -- Make it easier to prove losing conditions
-   Print_Chunk (20, 36);
-   Print_Chunk (18, 36);
-   Print_Chunk (16, 36);
-
    if (false) then
+      -- Make it easier to prove winning conditions
+      Print_Chunk (36, 20);
+      Print_Chunk (36, 18);
+      Print_Chunk (36, 16);
+
+      -- Make it easier to prove losing conditions
+      Print_Chunk (20, 36);
+      Print_Chunk (18, 36);
+      Print_Chunk (16, 36);
+
       Print_Chunk (34, 18);
       Print_Chunk (18, 34);
       Print_Chunk (34, 16);

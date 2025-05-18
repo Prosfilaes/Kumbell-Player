@@ -58,24 +58,40 @@ package body Exact_AB is
    end Is_Degenerate;
 
    function Solve_Degenerate (b : Game_State) return Spot_Move_Score is
-      new_board  : Game_State;
-      new_score  : Score;
-      p : Piece_Count;
+      new_board : Game_State;
+      new_score : Score;
+      p1, p2    : Piece_Count;
+      new_store : Piece_Count;
    begin
+      p1 :=
+        b.board (1)
+        + b.board (2)
+        + b.board (3)
+        + b.board (4)
+        + b.board (5)
+        + b.board (6);
+      p2 :=
+        b.board (7)
+        + b.board (8)
+        + b.board (9)
+        + b.board (10)
+        + b.board (11)
+        + b.board (12);
       if b.curr_player = 2 then
-         p :=
-           b.board (1)
-           + b.board (2)
-           + b.board (3)
-           + b.board (4)
-           + b.board (5)
-           + b.board (6);
-         if p = 0 then
+         if p1 = 0 then
             for m in Board_Spot'(8) .. 12 loop
                if b.board (m) /= 0 then
-                  new_board := Move (b, m);
-                  new_score := Alpha_Beta_Search (new_board, -127, 127, 3);
-                  return Spot_Move_Score'(m, -new_score, True);
+                  -- m is effectively a null move; p1 is still 0.
+                  -- Thus player 1 goes and loses because they have
+                  -- no move. p2 gets added to Player 2's score.
+                  new_store := b.store (2) + p2;
+                  if b.store (1) > new_store then
+                     return Spot_Move_Score'(m, -127, True);
+                  elsif b.store (1) = new_store then
+                     return Spot_Move_Score'(m, 0, True);
+                  else
+                     return Spot_Move_Score'(m, 127, True);
+                  end if;
                end if;
             end loop;
             new_board := Move (b, 7);
@@ -83,19 +99,20 @@ package body Exact_AB is
             return Spot_Move_Score'(7, -new_score, True);
          end if;
       else
-         p :=
-           b.board (7)
-           + b.board (8)
-           + b.board (9)
-           + b.board (10)
-           + b.board (11)
-           + b.board (12);
-         if p = 0 then
+         if p2 = 0 then
             for m in Board_Spot'(2) .. 6 loop
                if b.board (m) /= 0 then
-                  new_board := Move (b, m);
-                  new_score := Alpha_Beta_Search (new_board, -127, 127, 3);
-                  return Spot_Move_Score'(m, -new_score, True);
+                  -- m is effectively a null move; p2 is still 0.
+                  -- Thus player 2 goes and loses because they have
+                  -- no move. p1 gets added to Player 1's score.
+                  new_store := b.store (1) + p1;
+                  if b.store (2) > new_store then
+                     return Spot_Move_Score'(m, -127, True);
+                  elsif b.store (2) = new_store then
+                     return Spot_Move_Score'(m, 0, True);
+                  else
+                     return Spot_Move_Score'(m, 127, True);
+                  end if;
                end if;
             end loop;
             new_board := Move (b, 1);
@@ -104,8 +121,7 @@ package body Exact_AB is
          end if;
       end if;
 
-      raise Constraint_Error with
-        "No legal moves in degenerate position";
+      raise Constraint_Error with "No legal moves in degenerate position";
    end Solve_Degenerate;
 
    function Alpha_Beta_Search
@@ -113,7 +129,6 @@ package body Exact_AB is
       return Score
    is
       best_score : Score;
-      new_board  : Game_State;
       this_score : Score;
       new_alpha  : Score := alpha;
       cb         : Compressed_Board;
@@ -127,7 +142,7 @@ package body Exact_AB is
       if Is_Degenerate (board) then
          return Solve_Degenerate (board).est_score;
       end if;
-      if board.store(board.curr_player) = 36 then
+      if board.store (board.curr_player) = 36 then
          best_score := 0;
          if new_alpha < 0 then
             new_alpha := 0;
@@ -135,28 +150,32 @@ package body Exact_AB is
       else
          best_score := -127;
       end if;
-
       for m in Board_Spot'(1) .. 12 loop
          if is_legal_move (board, m) then
-            new_board := Move (board, m);
-            if new_board.curr_player = 1 then
-               cb := Compress (new_board);
-            end if;
-            if new_board.curr_player = 1 and then Move_Book.Is_Book_Move (cb)
-            then
-               this_score := Move_Book.Get_Score (cb);
-            else
-               this_score :=
-                 Alpha_Beta_Search (new_board, -beta, -new_alpha, depth - 1);
-               this_score := -this_score;
-            end if;
-            if this_score >= beta then
-               return this_score;
-            end if;
-            if this_score > best_score then
-               best_score := this_score;
-            end if;
-            new_alpha := Score'Max (new_alpha, this_score);
+            declare
+               new_board : constant Game_State := Move (board, m);
+            begin
+               if new_board.curr_player = 1 then
+                  cb := Compress (new_board);
+               end if;
+               if new_board.curr_player = 1
+                 and then Move_Book.Is_Book_Move (cb)
+               then
+                  this_score := -Move_Book.Get_Score (cb);
+               else
+                  this_score :=
+                    Alpha_Beta_Search
+                      (new_board, -beta, -new_alpha, depth - 1);
+                  this_score := -this_score;
+               end if;
+               if this_score >= beta then
+                  return this_score;
+               end if;
+               if this_score > best_score then
+                  best_score := this_score;
+               end if;
+               new_alpha := Score'Max (new_alpha, this_score);
+            end;
          end if;
       end loop;
       return best_score;

@@ -3,7 +3,6 @@ with Ada.Containers;
 with Ada.Containers.Hashed_Maps;
 with Player; use Player;
 with Exact_AB;
-with Alpha_Beta;
 
 package body Move_Book is
    function Hash (board : Compressed_Board) return Ada.Containers.Hash_Type is
@@ -135,22 +134,29 @@ package body Move_Book is
               (f,
                Compress_Base64 (cb)
                & " 1 "
-               & Board_Spot'Image (sms.move));
+               & Board_Spot'Image (sms.move)
+               & " "
+               & To_String (b));
          elsif sms.est_score = -127 then
             Ada.Text_IO.Put_Line
               (f,
                Compress_Base64 (cb)
                & " 2 "
-               & Board_Spot'Image (sms.move));
+               & Board_Spot'Image (sms.move)
+               & " "
+               & To_String (b));
          elsif sms.est_score = 0 then
             Ada.Text_IO.Put_Line
               (f,
                Compress_Base64 (cb)
                & " 0 "
-               & Board_Spot'Image (sms.move));
+               & Board_Spot'Image (sms.move)
+               & " "
+               & To_String (b));
          else
             raise Constraint_Error;
          end if;
+         pragma Assert (if b.store (1) = 36 then sms.est_score /= -127);
       exception
          when Exact_AB.Stack_Overflow_Error =>
             Ada.Text_IO.Put_Line
@@ -158,56 +164,8 @@ package body Move_Book is
                "*** Didn't conclude -"
                & Compress_Base64 (cb)
                & " "
-               & sms.est_score'Image 
-               & " " 
                & To_String (b));
       end;
-   end Add_Move;
-
-   procedure Add_Move
-     (f : Ada.Text_IO.File_Type; b : Game_State; depth : Integer)
-   is
-      cb  : constant Compressed_Board := Compress (b);
-      sms : Spot_Move_Score;
-   begin
-      if Move_Book.Is_Book_Move (cb) then
-         return;
-      -- sms := Move_Book.Get_Move (cb, b.curr_player);
-
-      else
-         sms := Alpha_Beta.Best_Move (b, depth, True);
-      end if;
-      if sms.exact then
-         Game_Book.Insert (cb, sms);
-         if sms.est_score = 127 then
-            Ada.Text_IO.Put_Line
-              (f,
-               Compress_Base64 (Compress (b))
-               & " 1 "
-               & Board_Spot'Image (sms.move));
-         elsif sms.est_score = -127 then
-            Ada.Text_IO.Put_Line
-              (f,
-               Compress_Base64 (Compress (b))
-               & " 2 "
-               & Board_Spot'Image (sms.move));
-         elsif sms.est_score = 0 then
-            Ada.Text_IO.Put_Line
-              (f,
-               Compress_Base64 (Compress (b))
-               & " 0 "
-               & Board_Spot'Image (sms.move));
-         else
-            raise Constraint_Error;
-         end if;
-      else
-         Ada.Text_IO.Put_Line
-           (f,
-            "*** Didn't conclude -"
-            & Compress_Base64 (Compress (b))
-            & " "
-            & sms.est_score'Image);
-      end if;
    end Add_Move;
 
 end Move_Book;
