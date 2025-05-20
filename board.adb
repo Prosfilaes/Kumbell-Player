@@ -115,7 +115,7 @@ package body Board is
       end if;
    end Game_Over;
 
-   function Winner (b : Game_State) return Integer is
+   function Winner (b : Game_State) return Winner_Type is
       --            with Pre => Game_Over (b);
       player1 : Piece_Count := b.store (1);
       player2 : Piece_Count := b.store (2);
@@ -280,6 +280,22 @@ package body Board is
       return compressed;
    end Compress;
 
+   function Decompress (cb : Compressed_Board) return Game_State is
+      b   : Game_State;
+      cbe : Compressed_Board := cb;
+   begin
+      b.store (2) := Piece_Count (cbe mod 64);
+      cbe := cbe / 64;
+      b.store (1) := Piece_Count (cbe mod 64);
+      cbe := cbe / 64;
+      for i in Board_Spot'(1) .. 12 loop
+         b.board (13 - i) := Piece_Count (cbe mod 16);
+         cbe := cbe / 16;
+      end loop;
+      b.curr_player := 1;
+      return b;
+   end Decompress;
+
    function Compress_Base64 (cb : Compressed_Board) return String is
       compressed : Compressed_Board := cb;
       s          : Unbounded_String;
@@ -329,5 +345,27 @@ package body Board is
          return compressed;
       end;
    end DeBase64;
+
+   function Player1_Board_Pieces (b : Game_State) return Piece_Count is
+   begin
+      return
+        b.board (1)
+        + b.board (2)
+        + b.board (3)
+        + b.board (4)
+        + b.board (5)
+        + b.board (6);
+   end;
+
+   function Player2_Board_Pieces (b : Game_State) return Piece_Count is
+   begin
+      return
+        b.board (7)
+        + b.board (8)
+        + b.board (9)
+        + b.board (10)
+        + b.board (11)
+        + b.board (12);
+   end;
 
 end Board;

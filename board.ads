@@ -39,7 +39,8 @@ package Board is
 
    function Game_Over (b : Game_State) return Boolean;
 
-   function Winner (b : Game_State) return Integer
+   type Winner_Type is range -1 .. 1;
+   function Winner (b : Game_State) return Winner_Type
    with Pre => Game_Over (b);
 
    function First_Move (b : Game_State) return Game_State;
@@ -66,7 +67,13 @@ package Board is
    function DeBase64 (s : String) return Compressed_Board
    with Pre => s'Length = 12;
 
+   function Decompress (cb : Compressed_Board) return Game_State;
+
    function Rotate_Board
      (b : Game_State; switch_player : Boolean := False) return Game_State;
 
+
+   function Player1_Board_Pieces (b : Game_State) return Piece_Count;
+
+   function Player2_Board_Pieces (b : Game_State) return Piece_Count;  
 end Board;

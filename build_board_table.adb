@@ -19,15 +19,13 @@ procedure Build_Board_Table is
      (b : Board.Game_State; depth : Integer; min_spot : Board_Spot)
    is
       new_b : Board.Game_State;
-      cb    : Compressed_Board;
    begin
       if depth = 0 then
 
          pragma Assert (Is_Legal_Board (b));
          if not Game_Over (b) then
-            cb := Compress (b);
-            if not Move_Book.Is_Book_Move (cb) then
-               Move_Book.Add_Move (Ada.Text_IO.Standard_Output, b);
+            if not Move_Book.Is_Book_Move (b) then
+               Move_Book.Add_Move (b);
             end if;
          end if;
       else
@@ -47,28 +45,13 @@ procedure Build_Board_Table is
         72 - (Integer (player1_score) + Integer (player2_score));
       b     : Board.Game_State;
    begin
-      Put_Line ("");
-      Put_Line
-        ("== "
-         & depth'Image
-         & " pieces on the board and "
-         & player1_score'Image
-         & " vs "
-         & player2_score'Image
-         & " ==");
-      -- Sometimes it doesn't get it the first time around
-      -- so after inserting values into the move book, we
-      -- try solving it again.
-      for loops in 1 .. 2 loop
-         Put_Line ("== Loop " & loops'Image & " ==");
-         b.curr_player := 1;
-         b.store (1) := player1_score;
-         b.store (2) := player2_score;
-         for i in Board_Spot'(1) .. 12 loop
-            b.board (i) := 0;
-         end loop;
-         Print_Chunk_Rec (b, depth, 1);
+      b.curr_player := 1;
+      b.store (1) := player1_score;
+      b.store (2) := player2_score;
+      for i in Board_Spot'(1) .. 12 loop
+         b.board (i) := 0;
       end loop;
+      Print_Chunk_Rec (b, depth, 1);
    end Print_Chunk;
 
 begin
@@ -80,37 +63,36 @@ begin
    Print_Chunk (36, 32);
    Print_Chunk (34, 34);
    Print_Chunk (32, 36);
+   Move_Book.Dump_Move_Book (Standard_Output);
+   if false then    
+      Print_Chunk (36, 30);
+      Print_Chunk (34, 32);
+      Print_Chunk (32, 34);
+      Print_Chunk (30, 36);
 
-   Print_Chunk (36, 30);
-   Print_Chunk (34, 32);
-   Print_Chunk (32, 34);
-   Print_Chunk (30, 36);
+      Print_Chunk (36, 28);
+      Print_Chunk (34, 30);
+      Print_Chunk (32, 32);
+      Print_Chunk (30, 34);
+      Print_Chunk (28, 36);
 
-   Print_Chunk (36, 28);
-   Print_Chunk (34, 30);
-   Print_Chunk (32, 32);
-   Print_Chunk (30, 34);
-   Print_Chunk (28, 36);
+      for i in Piece_Count'(26) .. 36 loop
+         if i mod 2 = 0 then
+            Print_Chunk (i, 62 - i);
+         end if;
+      end loop;
+      for i in Piece_Count'(24) .. 36 loop
+         if i mod 2 = 0 then
+            Print_Chunk (i, 60 - i);
+         end if;
+      end loop;
 
-   for i in Piece_Count'(26) .. 36 loop
-      if i mod 2 = 0 then
-         Print_Chunk (i, 62 - i);
-      end if;
-   end loop;
+      for i in Piece_Count'(22) .. 36 loop
+         if i mod 2 = 0 then
+            Print_Chunk (i, 58 - i);
+         end if;
+      end loop;
 
-   for i in Piece_Count'(24) .. 36 loop
-      if i mod 2 = 0 then
-         Print_Chunk (i, 60 - i);
-      end if;
-   end loop;
-
-   for i in Piece_Count'(22) .. 36 loop
-      if i mod 2 = 0 then
-         Print_Chunk (i, 58 - i);
-      end if;
-   end loop;
-
-   if (false) then
       -- Make it easier to prove winning conditions
       Print_Chunk (36, 20);
       Print_Chunk (36, 18);
@@ -128,5 +110,4 @@ begin
       Print_Chunk (32, 16);
       Print_Chunk (16, 32);
    end if;
-
 end Build_Board_Table;
