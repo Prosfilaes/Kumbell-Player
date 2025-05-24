@@ -285,6 +285,7 @@ package body Move_Book is
          end if;
          Unknown_Move_Book.Dequeue (b);
          Add_Move (b, depth * iterations);
+         count := @ - 1;
       end loop;
    end Add_Missing;
 
