@@ -1,20 +1,19 @@
 with Ada.Integer_Text_IO;
 with Ada.Text_IO.Unbounded_IO;
-with Ada.Containers;
+with Ada.Containers; use Ada.Containers;
 with Ada.Containers.Hashed_Maps;
-with Ada.Containers.Hashed_Sets;
 with Ada.Containers.Vectors;
+with Ada.Containers.Unbounded_Synchronized_Queues;
+with Ada.Containers.Synchronized_Queue_Interfaces;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Exact_AB;
 
 package body Move_Book is
    function Hash (b : Game_State) return Ada.Containers.Hash_Type is
-      cb : constant Compressed_Board := Compress (b);
-      type Half_Board is mod 2**64;
-      hb : Half_Board;
+      type Board_Bytes is mod 2**64;
+      cb : constant Board_Bytes := Board_Bytes (Compress (b));
    begin
-      hb := Half_Board (cb mod 2**64 xor (cb / 2**64));
-      return Ada.Containers.Hash_Type (hb mod 2**32 xor (hb / 2**32));
+      return Ada.Containers.Hash_Type (cb mod 2**32 xor (cb / 2**32));
    end Hash;
 
    function Is_Equal (a, b : Game_State) return Boolean is
@@ -31,12 +30,11 @@ package body Move_Book is
 
    Game_Book : Move_Hash_Map.Map;
 
-   package Move_Set is new
-     Ada.Containers.Hashed_Sets
-       (Element_Type        => Game_State,
-        Hash                => Hash,
-        Equivalent_Elements => Is_Equal);
-   Unknown_Move_Book : Move_Set.Set;
+   package Move_Queue_Interface is new
+     Ada.Containers.Synchronized_Queue_Interfaces (Game_State);
+   package Move_Queue is new
+     Ada.Containers.Unbounded_Synchronized_Queues (Move_Queue_Interface);
+   Unknown_Move_Book : Move_Queue.Queue;
 
    function Get_Spot_Move_Score (s : String) return Spot_Move_Score is
       sms       : Spot_Move_Score;
@@ -76,34 +74,40 @@ package body Move_Book is
          Ada.Text_IO.Open (File, Ada.Text_IO.In_File, filename);
          while not Ada.Text_IO.End_Of_File (File) loop
             declare
-               Line : constant string := Ada.Text_IO.Get_Line (File);
-               cb   : Compressed_Board;
-               sms  : Spot_Move_Score;
-               b    : Game_State;
+               Line        : constant string := Ada.Text_IO.Get_Line (File);
+               cb          : Compressed_Board;
+               sms         : Spot_Move_Score;
+               b           : Game_State;
+               first_space : Integer;
             begin
-               -- Ignore all lines that don't fit the format
-               if Line'Length >= 24
-                 and then ((Line (1) >= '0' and then Line (1) <= '9')
-                           or else (Line (1) >= 'A' and then Line (1) <= 'Z')
-                           or else (Line (1) >= 'a' and then Line (1) <= 'z')
-                           or else (Line (1) = '+')
-                           or else (Line (1) = '/'))
+               -- Ignore all lines that don't start with a positive number
+               if Line'Length > 16
+                 and then Line (1) = ' '
+                 and then Line (2) >= '1'
+                 and then Line (2) <= '9'
                then
-                  cb := DeBase64 (Line (1 .. 22));
+                  first_space := 2;
+                  while Line (first_space) >= '0'
+                    and then Line (first_space) <= '9'
+                  loop
+                     first_space := @ + 1;
+                  end loop;
+                  cb := Compressed_Board'Value (Line (1 .. first_space - 1));
                   b := Decompress (cb);
-                  Ada.Text_IO.Put_Line (To_String(b));
-                  if not Is_Legal_Board (b) then
-                     Ada.Text_IO.Put_Line (Line);
-                  end if;
+                  -- Ada.Text_IO.Put_Line (To_String(b));
+                  -- if not Is_Legal_Board (b) then
+                  --   Ada.Text_IO.Put_Line (Line);
+                  --end if;
                   pragma Assert (Compress (b) = cb);
-                  sms := Get_Spot_Move_Score (Line (24 .. Line'Last));
+                  sms :=
+                    Get_Spot_Move_Score (Line (first_space + 1 .. Line'Last));
                   if not Game_Book.Contains (b) then
                      Game_Book.Insert (b, sms);
                   else
                      Ada.Text_IO.Put_Line
                        (Ada.Text_IO.Standard_Error,
                         "Duplicate entry in book: "
-                        & Compress_Base64 (cb)
+                        & cb'Image
                         & " "
                         & Line (14 .. Line'Last));
                   end if;
@@ -116,47 +120,15 @@ package body Move_Book is
       return;
    end Load_Book;
 
-   function Is_Book_Move (cb : Compressed_Board) return Boolean is
-      pragma Obsolescent (Is_Book_Move, "No need to compress boards");
-   begin
-      return Game_Book.Contains (Decompress (cb));
-   end Is_Book_Move;
-
    function Is_Book_Move (b : Game_State) return Boolean is
    begin
       return Game_Book.Contains (b);
    end Is_Book_Move;
-   pragma Inline (Is_Book_Move);
-
-   function Is_Missing_Move (cb : Compressed_Board) return Boolean is
-      pragma Obsolescent (Is_Missing_Move, "No need to compress boards");
-   begin
-      return Unknown_Move_Book.Contains (Decompress (cb));
-   end Is_Missing_Move;
-
-   function Is_Missing_Move (b : Game_State) return Boolean is
-   begin
-      return Unknown_Move_Book.Contains (b);
-   end Is_Missing_Move;
-   pragma Inline (Is_Missing_Move);
-
-   function Get_Score (cb : Compressed_Board) return Score is
-      pragma Obsolescent ("No need to compress boards");
-   begin
-      return Game_Book.Element (Decompress (cb)).est_score;
-   end Get_Score;
 
    function Get_Score (b : Game_State) return Score is
    begin
       return Game_Book.Element (b).est_score;
    end Get_Score;
-   pragma Inline (Get_Score);
-
-   function Get_Move (cb : Compressed_Board) return Spot_Move_Score is
-      pragma Obsolescent ("No need to compress boards");
-   begin
-      return Game_Book.Element (Decompress (cb));
-   end Get_Move;
 
    function Get_Move (b : Game_State) return Spot_Move_Score is
    begin
@@ -165,9 +137,7 @@ package body Move_Book is
 
    procedure Missing_Move_Insert (b : Game_State) is
    begin
-      if not Unknown_Move_Book.Contains (b) then
-         Unknown_Move_Book.Insert (b);
-      end if;
+      Unknown_Move_Book.Enqueue (b);
    end Missing_Move_Insert;
 
    procedure Add_Move (b : Game_State; depth : Natural) is
@@ -185,10 +155,7 @@ package body Move_Book is
       else
          Missing_Move_Insert (b);
          Ada.Text_IO.Put_Line
-           ("*** Didn't conclude -"
-            & Compress_Base64 (cb)
-            & " "
-            & To_String (b));
+           ("*** Didn't conclude -" & cb'Image & " " & To_String (b));
       end if;
    end Add_Move;
 
@@ -235,7 +202,7 @@ package body Move_Book is
                   if sms.est_score = 127 then
                      board_list.Append
                        (To_Unbounded_String
-                          (Compress_Base64 (cb)
+                          (cb'Image
                            & " 1 "
                            & Board_Spot'Image (sms.move)
                            & " "
@@ -243,7 +210,7 @@ package body Move_Book is
                   elsif sms.est_score = -127 then
                      board_list.Append
                        (To_Unbounded_String
-                          (Compress_Base64 (cb)
+                          (cb'Image
                            & " 2 "
                            & Board_Spot'Image (sms.move)
                            & " "
@@ -251,7 +218,7 @@ package body Move_Book is
                   elsif sms.est_score = 0 then
                      board_list.Append
                        (To_Unbounded_String
-                          (Compress_Base64 (cb)
+                          (cb'Image
                            & " 0 "
                            & Board_Spot'Image (sms.move)
                            & " "
@@ -302,21 +269,22 @@ package body Move_Book is
    end Dump_Move_Book;
 
    procedure Add_Missing (depth : Natural) is
-      mmb : Move_Set.Set := Unknown_Move_Book;
-      i   : Integer := 1;
+      count      : Ada.Containers.Count_Type := 0;
+      iterations : Integer := 0;
+      b          : Game_State;
    begin
-      while not Unknown_Move_Book.Is_Empty loop
-         mmb := Unknown_Move_Book;
-         Unknown_Move_Book := Move_Set.Empty_Set;
-         Ada.Text_IO.Put_Line
-           ("** Iteration "
-            & i'Image
-            & " Missing boards: "
-            & mmb.Length'Image);
-         for b of mmb loop
-            Add_Move (b, depth * i);
-         end loop;
-         i := i + 1;
+      while Unknown_Move_Book.Current_Use > 0 loop
+         if count = 0 then
+            iterations := @ + 1;
+            count := Unknown_Move_Book.Current_Use;
+            Ada.Text_IO.Put_Line
+              ("** Iteration "
+               & iterations'Image
+               & " Missing boards: "
+               & count'Image);
+         end if;
+         Unknown_Move_Book.Dequeue (b);
+         Add_Move (b, depth * iterations);
       end loop;
    end Add_Missing;
 

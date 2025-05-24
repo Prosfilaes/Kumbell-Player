@@ -1,5 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Characters.Latin_1;
+with Ada.Text_IO;
 
 package body Board is
 
@@ -231,47 +232,78 @@ package body Board is
       return new_board;
    end Rotate_Board;
 
-   function Is_Compressable (b : Game_State) return Boolean is
+   function Binomial (N, K : Natural) return Compressed_Board is
+      Result : Compressed_Board := 1;
    begin
-      for i in Board_Spot'(1) .. 12 loop
-         if b.board (i) > 31 then
-            return false;
-         end if;
+      if K > N then
+         return 0;
+      end if;
+
+      for i in 1 .. K loop
+         Result :=
+           Result * Compressed_Board (N - i + 1) / Compressed_Board (i);
       end loop;
-      return true;
-   end Is_Compressable;
+
+      return Result;
+   end Binomial;
 
    function Compress (b : Game_State) return Compressed_Board is
-      compressed : Compressed_Board := 0;
+      Rank_Value : Compressed_Board := 0;
+      Total      : Natural := 72;
+      Holes_Left : Natural := 14;
+      Config     : array (1 .. 14) of Piece_Count;
    begin
       if b.curr_player = 2 then
          raise Constraint_Error
            with "Compress: Player 2 is not allowed to compress";
-      -- This isn't working yet
-
       end if;
-      for i in Board_Spot'(1) .. 12 loop
-         compressed := compressed * 32 + Compressed_Board (b.board (i));
+      Config (1) := b.store (1);
+      Config (2) := b.store (2);
+      for i in 1 .. 12 loop
+         Config (i + 2) := b.board (Board_Spot (i));
       end loop;
-      compressed := compressed * 64 + Compressed_Board (b.store (1));
-      compressed := compressed * 64 + Compressed_Board (b.store (2));
-      return compressed;
+      for I in 1 .. 13 loop
+         Holes_Left := Holes_Left - 1;
+         for X in 0 .. Integer (Config (I)) - 1 loop
+            Rank_Value :=
+              Rank_Value
+              + Binomial (Total - X - 1 + Holes_Left, Holes_Left - 1);
+         end loop;
+         Total := Total - Integer (Config (I));
+      end loop;
+      return Rank_Value;
    end Compress;
 
    function Decompress (cb : Compressed_Board) return Game_State is
-      b   : Game_State;
-      cbe : Compressed_Board := cb;
+      Total      : Natural := 72;
+      Holes_Left : Natural := 14;
+      Config     : array (1 .. 14) of Piece_Count;
+      Count      : Natural;
+      Comb       : Compressed_Board;
+      Rank_Value : Compressed_Board := cb;
+      B          : Game_State;
    begin
-      b.store (2) := Piece_Count (cbe mod 64);
-      cbe := cbe / 64;
-      b.store (1) := Piece_Count (cbe mod 64);
-      cbe := cbe / 64;
-      for i in Board_Spot'(1) .. 12 loop
-         b.board (13 - i) := Piece_Count (cbe mod 16);
-         cbe := cbe / 32;
+      for I in 1 .. 13 loop
+         Count := 0;
+         loop
+            Comb :=
+              Binomial (Total - Count - 1 + Holes_Left - 1, Holes_Left - 2);
+            exit when Comb > Rank_Value;
+            Rank_Value := Rank_Value - Comb;
+            Count := Count + 1;
+         end loop;
+         Config (I) := Piece_Count (Count);
+         Total := Total - Count;
+         Holes_Left := Holes_Left - 1;
       end loop;
-      b.curr_player := 1;
-      return b;
+      Config (14) := Piece_Count (Total);
+      B.curr_player := 1;
+      B.store (1) := Config (1);
+      B.store (2) := Config (2);
+      for i in 1 .. 12 loop
+         B.board (Board_Spot (i)) := Config (i + 2);
+      end loop;
+      return B;
    end Decompress;
 
    function Compress_Base64 (cb : Compressed_Board) return String is

@@ -71,32 +71,29 @@ begin
    Print_Chunk (34, 34);
    Print_Chunk (32, 36);
 
-   Print_Chunk (36, 30);
-   Print_Chunk (34, 32);
-   Print_Chunk (32, 34);
-   Print_Chunk (30, 36);
+      Print_Chunk (36, 30);
+      Print_Chunk (34, 32);
+      Print_Chunk (32, 34);
+      Print_Chunk (30, 36);
 
-   -- Move_Book.Add_Missing (5);
+      Print_Chunk (36, 28);
+      Print_Chunk (34, 30);
+      Print_Chunk (32, 32);
+      Print_Chunk (30, 34);
+      Print_Chunk (28, 36);
 
-   Print_Chunk (36, 28);
-   Print_Chunk (34, 30);
-   Print_Chunk (32, 32);
-   Print_Chunk (30, 34);
-   Print_Chunk (28, 36);
+      for i in Piece_Count'(26) .. 36 loop
+         if i mod 2 = 0 then
+            Print_Chunk (i, 62 - i);
+         end if;
+      end loop;
 
-   for i in Piece_Count'(26) .. 36 loop
-      if i mod 2 = 0 then
-         Print_Chunk (i, 62 - i);
-      end if;
-   end loop;
-
-   for i in Piece_Count'(24) .. 36 loop
-      if i mod 2 = 0 then
-         Print_Chunk (i, 60 - i);
-      end if;
-   end loop;
-
-   if false then
+      for i in Piece_Count'(24) .. 36 loop
+         if i mod 2 = 0 then
+            Print_Chunk (i, 60 - i);
+         end if;
+      end loop;
+if false then
       for i in Piece_Count'(22) .. 36 loop
          if i mod 2 = 0 then
             Print_Chunk (i, 58 - i);
@@ -119,6 +116,6 @@ begin
       Print_Chunk (16, 34);
       Print_Chunk (32, 16);
       Print_Chunk (16, 32);
-   end if;
+end if;
    Move_Book.Dump_Move_Book (Standard_Output);
 end Build_Board_Table;
