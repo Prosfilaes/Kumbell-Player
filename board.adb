@@ -60,28 +60,6 @@ package body Board is
                end if;
             else
                new_b.curr_player := Next (@);
-               --if false then
-               --   if b.curr_player = new_b.curr_player then
-               --      Ada.Text_IO.Put_Line ("Player didn't change!");
-               --   elsif b.store (1) > new_b.store (1) then
-               --      Ada.Text_IO.Put_Line ("Player 1 store decreased!");
-               --      Ada.Text_IO.Put_Line ("Old: " & To_String (b));
-               --      Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
-               --   elsif b.store (2) > new_b.store (2) then
-               --      Ada.Text_IO.Put_Line ("Player 2 store decreased!");
-               --      Ada.Text_IO.Put_Line ("Old: " & To_String (b));
-               --      Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
-               --   elsif Board_Sum (new_b) /= 72 then
-               --      Ada.Text_IO.Put_Line ("Board sum isn't 72!");
-               --     Ada.Text_IO.Put_Line ("Old: " & To_String (b));
-               --      Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
-               --   elsif not Is_Legal_Board (new_b) then
-               --      -- Is_legal Board current only does board sum
-               --      Ada.Text_IO.Put_Line ("Generic Board isn't legal!");
-               --      Ada.Text_IO.Put_Line ("Old: " & To_String (b));
-               --      Ada.Text_IO.Put_Line ("New: " & To_String (new_b));
-               --   end if;
-               --end if;
                return new_b;
             end if;
          end;
@@ -256,7 +234,7 @@ package body Board is
    function Is_Compressable (b : Game_State) return Boolean is
    begin
       for i in Board_Spot'(1) .. 12 loop
-         if b.board (i) > 15 then
+         if b.board (i) > 31 then
             return false;
          end if;
       end loop;
@@ -273,7 +251,7 @@ package body Board is
 
       end if;
       for i in Board_Spot'(1) .. 12 loop
-         compressed := compressed * 16 + Compressed_Board (b.board (i));
+         compressed := compressed * 32 + Compressed_Board (b.board (i));
       end loop;
       compressed := compressed * 64 + Compressed_Board (b.store (1));
       compressed := compressed * 64 + Compressed_Board (b.store (2));
@@ -290,7 +268,7 @@ package body Board is
       cbe := cbe / 64;
       for i in Board_Spot'(1) .. 12 loop
          b.board (13 - i) := Piece_Count (cbe mod 16);
-         cbe := cbe / 16;
+         cbe := cbe / 32;
       end loop;
       b.curr_player := 1;
       return b;
@@ -302,7 +280,7 @@ package body Board is
       base64     : constant String :=
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
    begin
-      for i in 1 .. 12 loop
+      for i in 1 .. 22 loop
          append (s, base64 (Integer (compressed mod 64 + 1)));
          compressed := compressed / 64;
       end loop;
@@ -314,7 +292,7 @@ package body Board is
       declare
          compressed : Compressed_Board := 0;
       begin
-         for i in reverse 1 .. 12 loop
+         for i in reverse 1 .. 22 loop
             if s (i) >= 'A' and then s (i) <= 'Z' then
                compressed :=
                  compressed

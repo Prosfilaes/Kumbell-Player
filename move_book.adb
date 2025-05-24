@@ -1,15 +1,20 @@
 with Ada.Integer_Text_IO;
+with Ada.Text_IO.Unbounded_IO;
 with Ada.Containers;
 with Ada.Containers.Hashed_Maps;
 with Ada.Containers.Hashed_Sets;
 with Ada.Containers.Vectors;
+with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Exact_AB;
 
 package body Move_Book is
    function Hash (b : Game_State) return Ada.Containers.Hash_Type is
       cb : constant Compressed_Board := Compress (b);
+      type Half_Board is mod 2**64;
+      hb : Half_Board;
    begin
-      return Ada.Containers.Hash_Type (cb mod 2**32 xor (cb / 2**32));
+      hb := Half_Board (cb mod 2**64 xor (cb / 2**64));
+      return Ada.Containers.Hash_Type (hb mod 2**32 xor (hb / 2**32));
    end Hash;
 
    function Is_Equal (a, b : Game_State) return Boolean is
@@ -77,17 +82,21 @@ package body Move_Book is
                b    : Game_State;
             begin
                -- Ignore all lines that don't fit the format
-               if Line'Length >= 14
+               if Line'Length >= 24
                  and then ((Line (1) >= '0' and then Line (1) <= '9')
                            or else (Line (1) >= 'A' and then Line (1) <= 'Z')
                            or else (Line (1) >= 'a' and then Line (1) <= 'z')
                            or else (Line (1) = '+')
                            or else (Line (1) = '/'))
                then
-                  cb := DeBase64 (Line (1 .. 12));
+                  cb := DeBase64 (Line (1 .. 22));
                   b := Decompress (cb);
+                  Ada.Text_IO.Put_Line (To_String(b));
+                  if not Is_Legal_Board (b) then
+                     Ada.Text_IO.Put_Line (Line);
+                  end if;
                   pragma Assert (Compress (b) = cb);
-                  sms := Get_Spot_Move_Score (Line (14 .. Line'Last));
+                  sms := Get_Spot_Move_Score (Line (24 .. Line'Last));
                   if not Game_Book.Contains (b) then
                      Game_Book.Insert (b, sms);
                   else
@@ -154,7 +163,14 @@ package body Move_Book is
       return Game_Book.Element (b);
    end Get_Move;
 
-   procedure Add_Move (b : Game_State) is
+   procedure Missing_Move_Insert (b : Game_State) is
+   begin
+      if not Unknown_Move_Book.Contains (b) then
+         Unknown_Move_Book.Insert (b);
+      end if;
+   end Missing_Move_Insert;
+
+   procedure Add_Move (b : Game_State; depth : Natural) is
       cb  : constant Compressed_Board := Compress (b);
       sms : Spot_Move_Score;
    begin
@@ -162,12 +178,12 @@ package body Move_Book is
          return;
       end if;
 
-      sms := Exact_AB.Best_Move (b);
+      sms := Exact_AB.Best_Move (b, depth);
       if sms.exact then
          Game_Book.Insert (b, sms);
          pragma Assert (if b.store (1) = 36 then sms.est_score /= -127);
       else
-         Unknown_Move_Book.Insert (b);
+         Missing_Move_Insert (b);
          Ada.Text_IO.Put_Line
            ("*** Didn't conclude -"
             & Compress_Base64 (cb)
@@ -176,68 +192,132 @@ package body Move_Book is
       end if;
    end Add_Move;
 
-   procedure Dump_Move_Book (f : Ada.Text_IO.File_Type) is
+   procedure Dump_Move_Book_Local
+     (f               : Ada.Text_IO.File_Type;
+      per_size_map    : Move_Hash_Map.Map;
+      pieces_on_board : Piece_Count;
+      Player1_Store   : Piece_Count)
+   is
+
       board_found : Boolean;
+      package Board_Container is new
+        Ada.Containers.Vectors (Natural, Unbounded_String);
+      use Board_Container;
+      package A_Sorter is new Generic_Sorting;
+      board_list  : Vector;
    begin
-      for pieces_on_board in 2 .. 72 loop
-         for player1_store in Piece_Count'(0) .. 36 loop
-            board_found := False;
-            for b_sms in Game_Book.Iterate loop
-               declare
-                  b            : Game_State := Move_Hash_Map.Key (b_sms);
-                  board_pieces : Integer :=
-                    72 - Integer (b.store (1)) - Integer (b.store (2));
-                  sms           : Spot_Move_Score :=
-                    Move_Hash_Map.Element (b_sms);
-                  cb           : Compressed_Board := Compress (b);
-               begin
-                  if board_pieces = pieces_on_board then
-                     if player1_store = b.store (1) then
-                        if not board_found then
-                           board_found := True;
-                           Ada.Text_IO.Put_Line ("");
-                           Ada.Text_IO.Put_Line
-                             ("== "
-                              & pieces_on_board'Image
-                              & " pieces on the board and "
-                              & b.store (1)'Image
-                              & " vs "
-                              & b.store (2)'Image
-                              & " ==");
-                        end if;
-                        if sms.est_score = 127 then
-                           Ada.Text_IO.Put_Line
-                             (f,
-                              Compress_Base64 (cb)
-                              & " 1 "
-                              & Board_Spot'Image (sms.move)
-                              & " "
-                              & To_String (b));
-                        elsif sms.est_score = -127 then
-                           Ada.Text_IO.Put_Line
-                             (f,
-                              Compress_Base64 (cb)
-                              & " 2 "
-                              & Board_Spot'Image (sms.move)
-                              & " "
-                              & To_String (b));
-                        elsif sms.est_score = 0 then
-                           Ada.Text_IO.Put_Line
-                             (f,
-                              Compress_Base64 (cb)
-                              & " 0 "
-                              & Board_Spot'Image (sms.move)
-                              & " "
-                              & To_String (b));
-                        else
-                           raise Constraint_Error;
-                        end if;
-                     end if;
+      board_found := False;
+      for b_sms in per_size_map.Iterate loop
+         declare
+            b            : constant Game_State := Move_Hash_Map.Key (b_sms);
+            board_pieces : constant Piece_Count :=
+              Piece_Count (72 - Integer (b.store (1)) - Integer (b.store (2)));
+            sms          : Spot_Move_Score;
+            cb           : Compressed_Board;
+         begin
+            if board_pieces = pieces_on_board then
+               if player1_store = b.store (1) then
+                  sms := Move_Hash_Map.Element (b_sms);
+                  cb := Compress (b);
+                  if not board_found then
+                     board_found := True;
+                     Ada.Text_IO.Put_Line (f, "");
+                     Ada.Text_IO.Put_Line
+                       (f,
+                        "== "
+                        & pieces_on_board'Image
+                        & " pieces on the board and "
+                        & b.store (1)'Image
+                        & " vs "
+                        & b.store (2)'Image
+                        & " ==");
                   end if;
-               end;
-            end loop;
+                  if sms.est_score = 127 then
+                     board_list.Append
+                       (To_Unbounded_String
+                          (Compress_Base64 (cb)
+                           & " 1 "
+                           & Board_Spot'Image (sms.move)
+                           & " "
+                           & To_String (b)));
+                  elsif sms.est_score = -127 then
+                     board_list.Append
+                       (To_Unbounded_String
+                          (Compress_Base64 (cb)
+                           & " 2 "
+                           & Board_Spot'Image (sms.move)
+                           & " "
+                           & To_String (b)));
+                  elsif sms.est_score = 0 then
+                     board_list.Append
+                       (To_Unbounded_String
+                          (Compress_Base64 (cb)
+                           & " 0 "
+                           & Board_Spot'Image (sms.move)
+                           & " "
+                           & To_String (b)));
+                  else
+                     raise Constraint_Error;
+                  end if;
+               end if;
+            end if;
+         end;
+      end loop;
+      if board_found then
+         A_Sorter.Sort (board_list);
+         for line of board_list loop
+            Ada.Text_IO.Unbounded_IO.Put_Line (f, line);
+         end loop;
+      end if;
+   end Dump_Move_Book_Local;
+
+   procedure Dump_Move_Book (f : Ada.Text_IO.File_Type) is
+      Per_Size_Maps : array (2 .. 72) of Move_Hash_Map.Map;
+   begin
+      for b_sms in Game_Book.Iterate loop
+         declare
+            b            : constant Game_State := Move_Hash_Map.Key (b_sms);
+            board_pieces : constant Integer :=
+              (72 - Integer (b.store (1)) - Integer (b.store (2)));
+            sms          : constant Spot_Move_Score :=
+              Move_Hash_Map.Element (b_sms);
+         begin
+            Per_Size_Maps (board_pieces).Insert (b, sms);
+         end;
+      end loop;
+
+      for pieces_on_board in 2 .. 72 loop
+         for player1_store in 0 .. 36 loop
+            if 72 - pieces_on_board - player1_store >= 0
+              and then 72 - pieces_on_board - player1_store <= 36
+            then
+               Dump_Move_Book_Local
+                 (f,
+                  Per_Size_Maps (pieces_on_board),
+                  Piece_Count (pieces_on_board),
+                  Piece_Count (player1_store));
+            end if;
          end loop;
       end loop;
    end Dump_Move_Book;
+
+   procedure Add_Missing (depth : Natural) is
+      mmb : Move_Set.Set := Unknown_Move_Book;
+      i   : Integer := 1;
+   begin
+      while not Unknown_Move_Book.Is_Empty loop
+         mmb := Unknown_Move_Book;
+         Unknown_Move_Book := Move_Set.Empty_Set;
+         Ada.Text_IO.Put_Line
+           ("** Iteration "
+            & i'Image
+            & " Missing boards: "
+            & mmb.Length'Image);
+         for b of mmb loop
+            Add_Move (b, depth * i);
+         end loop;
+         i := i + 1;
+      end loop;
+   end Add_Missing;
 
 end Move_Book;

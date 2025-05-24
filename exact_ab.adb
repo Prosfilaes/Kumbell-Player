@@ -4,27 +4,6 @@ with Ada.Text_IO;
 
 package body Exact_AB is
 
-   function Evaluate (b : Game_State) return Score
-   with pre => Board.Game_Over (b);
-
-   function Evaluate (b : Game_State) return Score is
-      ret_score : Score;
-      winner    : Winner_Type;
-   begin
-      winner := Board.Winner (b);
-      if winner = 0 then
-         ret_score := 0;
-      elsif (b.curr_player = 1 and then winner = -1)
-        or else (b.curr_player = 2 and then winner = 1)
-      then
-         ret_score := 127;
-      else
-         -- (Winner = -1 and p = 2) or (winner = 1 and p = 1)
-         ret_score := -127;
-      end if;
-      return ret_score;
-   end Evaluate;
-
    function Is_Solvable (b : Game_State) return Boolean is
       p1, p2 : Piece_Count;
    begin
@@ -110,15 +89,21 @@ package body Exact_AB is
    end record;
 
    function Player2_Search
-     (b : Game_State; depth : Integer) return Winner_Score;
+     (b : Game_State; alpha : Winner_Type; beta : Winner_Type; depth : Integer)
+      return Winner_Score;
 
    function Player1_Search
-     (b : Game_State; depth : Integer) return Winner_Score
+     (b : Game_State; alpha : Winner_Type; beta : Winner_Type; depth : Integer)
+      return Winner_Score
    is
-      end_array : Integer := 0;
-      scores    : array (1 .. 6) of Winner_Score :=
+      end_array    : Integer := 0;
+      scores       : array (1 .. 6) of Winner_Score :=
         [others => Winner_Score'(False, 0)];
+      new_beta     : Winner_Type := beta;
+      all_resolved : Boolean := True;
+      value        : Winner_Type := 1;
    begin
+      --Ada.Text_IO.Put_Line ("1 -- " & To_String(b) & " a:" & alpha'Image & " b:" & beta'Image & " depth:" & depth'Image);
       if Game_Over (b) then
          return Winner_Score'(True, Board.Winner (b));
       end if;
@@ -137,153 +122,90 @@ package body Exact_AB is
             end if;
          end;
       end if;
-      if depth = 0 then
+      --Ada.Text_IO.Put_Line ("1 -- not GO or Book Move");
+      if depth <= 0 then
+         Move_Book.Missing_Move_Insert (b);
          return Winner_Score'(False, 0);
       end if;
+
       for m in Board_Spot'(1) .. 6 loop
          if Is_Legal_Move (b, m) then
             end_array := @ + 1;
-            scores (end_array) := Player2_Search (Move (b, m), depth - 1);
-            if scores (end_array) = Winner_Score'(True, -1)
-              or (b.store (2) = 36
-                  and then scores (end_array) = Winner_Score'(True, 0))
+            scores (end_array) :=
+              Player2_Search (Move (b, m), alpha, new_beta, depth);
+            if -- "scores (end_array) = Winner_Score'(True, -1) or" subsumed by alpha
+               (b.store (2) = 36
+                and then scores (end_array) = Winner_Score'(True, 0))
+              or (scores (end_array).resolved
+                  and scores (end_array).score <= alpha)
             then
                return scores (end_array);
             end if;
+            if scores (end_array).resolved
+              and scores (end_array).score < new_beta
+            then
+               new_beta := scores (end_array).score;
+            end if;
+            value := Winner_Type'Min (value, scores (end_array).score);
+            all_resolved := @ and scores (end_array).resolved;
          end if;
       end loop;
-      declare
-         best_move : Winner_Type := 1; -- -1 is player 1 win, 1 is player 2 win
-      begin
-         for i in 1 .. end_array loop
-            if not scores (i).resolved then
-               return Winner_Score'(False, 0);
-            else
-               if scores (i).score < best_move then
-                  best_move := scores (i).score;
-               end if;
-            end if;
-         end loop;
-         return Winner_Score'(True, best_move);
-      end;
+
+      if all_resolved then
+         return Winner_Score'(True, value);
+      else
+         return Winner_Score'(False, 0);
+      end if;
    end Player1_Search;
 
    function Player2_Search
-     (b : Game_State; depth : Integer) return Winner_Score
+     (b : Game_State; alpha : Winner_Type; beta : Winner_Type; depth : Integer)
+      return Winner_Score
    is
-      end_array : Integer := 0;
-      scores    : array (1 .. 6) of Winner_Score :=
+      end_array    : Integer := 0;
+      scores       : array (1 .. 6) of Winner_Score :=
         [others => Winner_Score'(False, 0)];
+      new_alpha    : Winner_Type := alpha;
+      all_resolved : Boolean := True;
+      value        : Winner_Type := -1;
    begin
+      --Ada.Text_IO.Put_Line ("2 -- " & To_String(b) & " a:" & alpha'Image & " b:" & beta'Image & " depth:" & depth'Image);
       if Game_Over (b) then
          return Winner_Score'(True, Board.Winner (b));
       end if;
-      if depth = 0 then
-         return Winner_Score'(False, 0);
-      end if;
+      --Ada.Text_IO.Put_Line ("2 -- not GO");
       for m in Board_Spot'(7) .. 12 loop
          if Is_Legal_Move (b, m) then
             end_array := @ + 1;
-            scores (end_array) := Player1_Search (Move (b, m), depth - 1);
-            if scores (end_array) = Winner_Score'(True, 1)
-              or (b.store (1) = 36
-                  and then scores (end_array) = Winner_Score'(True, 0))
+            scores (end_array) :=
+              Player1_Search (Move (b, m), new_alpha, beta, depth - 1);
+            if -- "scores (end_array) = Winner_Score'(True, 1) or" subsumed by beta
+               (b.store (1) = 36
+                and then scores (end_array) = Winner_Score'(True, 0))
+              or (scores (end_array).resolved
+                  and scores (end_array).score >= beta)
             then
                return scores (end_array);
             end if;
+            if scores (end_array).resolved
+              and scores (end_array).score > new_alpha
+            then
+               new_alpha := scores (end_array).score;
+            end if;
+            value := Winner_Type'Max (value, scores (end_array).score);
+            all_resolved := @ and scores (end_array).resolved;
          end if;
       end loop;
-      declare
-         best_move : Winner_Type := -1;
-      begin
-         for i in 1 .. end_array loop
-            if not scores (i).resolved then
-               return Winner_Score'(False, 0);
-            else
-               if scores (i).score > best_move then
-                  best_move := scores (i).score;
-               end if;
-            end if;
-         end loop;
-         return Winner_Score'(True, best_move);
-      end;
+
+      if all_resolved then
+         return Winner_Score'(True, value);
+      else
+         return Winner_Score'(False, 0);
+      end if;
    end Player2_Search;
 
-   type Solved_Score is record
-      resolved : Boolean;
-      s        : Score;
-   end record;
-
-   function Alpha_Beta_Search
-     (board : Game_State; alpha : Score; beta : Score; depth : Integer)
-      return Solved_Score
+   function Best_Move (b : Game_State; depth : Natural) return Spot_Move_Score
    is
-      best_score   : Score;
-      this_score   : Solved_Score;
-      new_alpha    : Score := alpha;
-      cb           : Compressed_Board;
-      all_resolved : Boolean := True;
-   begin
-      if Game_Over (board) then
-         return Solved_Score'(True, Evaluate (board));
-      end if;
-      if Is_Solvable (board) then
-         return Solved_Score'(True, Solve_Simple (board).est_score);
-      end if;
-      if depth = 0 then
-         return Solved_Score'(False, 0);
-      end if;
-      if board.store (board.curr_player) = 36 then
-         best_score := 0;
-         if new_alpha < 0 then
-            new_alpha := 0;
-         end if;
-      else
-         best_score := -127;
-      end if;
-      for m in Board_Spot'(1) .. 12 loop
-         if is_legal_move (board, m) then
-            declare
-               new_board : constant Game_State := Move (board, m);
-            begin
-               if new_board.curr_player = 1 then
-                  cb := Compress (new_board);
-               end if;
-               if new_board.curr_player = 1
-                 and then Move_Book.Is_Book_Move (new_board)
-               then
-                  this_score := Solved_Score'(True, -Move_Book.Get_Score (new_board));
-               elsif new_board.curr_player = 1
-                 and then Move_Book.Is_Missing_Move (new_board)
-               then
-                  Ada.Text_IO.Put_Line
-                    (" **** derived from missing " & Compress_Base64 (cb));
-                  this_score := Solved_Score'(False, 0);
-               else
-                  this_score :=
-                    Alpha_Beta_Search
-                      (new_board, -beta, -new_alpha, depth - 1);
-                  this_score.s := -this_score.s;
-               end if;
-               if this_score.s >= beta and then this_score.resolved then
-                  return this_score;
-               end if;
-               all_resolved := all_resolved and this_score.resolved;
-               if this_score.s >= best_score then
-                  best_score := this_score.s;
-               end if;
-               new_alpha := Score'Max (new_alpha, this_score.s);
-            end;
-         end if;
-      end loop;
-      if not all_resolved then
-         return Solved_Score'(False, best_score);
-      else
-         return Solved_Score'(True, best_score);
-      end if;
-   end;
-
-   function Best_Move (b : Game_State) return Spot_Move_Score is
       best_score   : Score := -127;
       best_move    : Board_Spot := 7;
       new_board    : Game_State;
@@ -295,7 +217,8 @@ package body Exact_AB is
       end if;
       -- If we have a winning solution, choose that, no matter
       -- whether or not we have other unsolved positions.
-      -- Draws or loses need solutions at all points.
+      -- Draws or loses need solutions at all points, unless
+      -- the best we can pull is a draw
       if b.curr_player = 1 then
          for m in Board_Spot'(1) .. 6 loop
             if Is_Legal_Move (b, m) then
@@ -303,7 +226,7 @@ package body Exact_AB is
                   best_move := m;
                end if;
                new_board := move (b, m);
-               new_score := Player2_Search (new_board, 30);
+               new_score := Player2_Search (new_board, -1, 1, depth);
                if new_score.score = -1 and new_score.resolved then
                   return Spot_Move_Score'(m, 127, True);
                end if;
@@ -332,7 +255,7 @@ package body Exact_AB is
                   best_move := m;
                end if;
                new_board := move (b, m);
-               new_score := Player1_Search (new_board, 30);
+               new_score := Player1_Search (new_board, -1, 1, depth);
                if new_score.score = 1 and new_score.resolved then
                   return Spot_Move_Score'(m, 127, True);
                end if;

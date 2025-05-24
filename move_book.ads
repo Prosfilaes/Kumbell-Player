@@ -8,8 +8,10 @@ package Move_Book is
    function Get_Score (b : Game_State) return Score;
    function Get_Move
      (b: Game_State) return Spot_Move_Score; 
-   procedure Add_Move (b : Game_State)
+   procedure Add_Move (b : Game_State; depth: Natural)
    with Pre => Is_Legal_Board (b) and then not Game_Over (b);
    procedure Dump_Move_Book (f : Ada.Text_IO.File_Type);
+   procedure Add_Missing (depth: Natural);
+   procedure Missing_Move_Insert (b : Game_State);
 
 end move_book;

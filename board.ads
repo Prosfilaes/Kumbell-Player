@@ -51,21 +51,20 @@ package Board is
 
    function Is_Compressable (b : Game_State) return Boolean;
 
-   type Compressed_Board is mod 2**64;
+   type Compressed_Board is mod 2**128;
 
    function Compress (b : Game_State) return Compressed_Board
    with
-     Pre  => Is_Compressable (b) and then Is_Legal_Board (b),
-     Post => Compress'Result < 2**63;
+     Pre  => Is_Compressable (b) and then Is_Legal_Board (b);
 
    function Compress_Base64 (cb : Compressed_Board) return String
    with
      Post =>
-       Compress_Base64'Result'Length = 12
+       Compress_Base64'Result'Length = 22
        and then DeBase64 (Compress_Base64'Result) = cb;
 
    function DeBase64 (s : String) return Compressed_Board
-   with Pre => s'Length = 12;
+   with Pre => s'Length = 22;
 
    function Decompress (cb : Compressed_Board) return Game_State;
 

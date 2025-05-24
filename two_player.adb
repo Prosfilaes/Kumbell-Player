@@ -7,7 +7,7 @@ procedure Two_Player is
    ab_move   : Spot_Move_Score;
    num_moves : Integer;
 begin
-   for ab_depth in 1 .. 15 loop
+   for ab_depth in 10 .. 25 loop
       Put_Line ("Depth " & ab_depth'Image);
       Put_Line ("");
       b := Initialize;
