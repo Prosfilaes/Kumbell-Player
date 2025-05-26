@@ -1,11 +1,9 @@
 with Ada.Integer_Text_IO;
 with Ada.Text_IO.Unbounded_IO;
-with Ada.Containers; use Ada.Containers;
+with Ada.Containers;        use Ada.Containers;
 with Ada.Containers.Hashed_Maps;
 with Ada.Containers.Hashed_Sets;
 with Ada.Containers.Vectors;
-with Ada.Containers.Unbounded_Synchronized_Queues;
-with Ada.Containers.Synchronized_Queue_Interfaces;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Exact_AB;
 
@@ -35,14 +33,9 @@ package body Move_Book is
      Ada.Containers.Hashed_Sets
        (Element_Type        => Game_State,
         Equivalent_Elements => Is_Equal,
-        Hash            => Hash);
+        Hash                => Hash);
 
-
-   package Move_Queue_Interface is new
-     Ada.Containers.Synchronized_Queue_Interfaces (Game_State);
-   package Move_Queue is new
-     Ada.Containers.Unbounded_Synchronized_Queues (Move_Queue_Interface);
-   Unknown_Move_Book : Move_Queue.Queue;
+   Unknown_Move_Book : Move_Hash_Set.Set;
 
    function Get_Spot_Move_Score (s : String) return Spot_Move_Score is
       sms       : Spot_Move_Score;
@@ -145,7 +138,9 @@ package body Move_Book is
 
    procedure Missing_Move_Insert (b : Game_State) is
    begin
-      Unknown_Move_Book.Enqueue (b);
+      if not Unknown_Move_Book.Contains (b) then
+         Unknown_Move_Book.Insert (b);
+      end if;
    end Missing_Move_Insert;
 
    procedure Add_Move (b : Game_State; depth : Natural) is
@@ -277,40 +272,32 @@ package body Move_Book is
    end Dump_Move_Book;
 
    procedure Add_Missing (depth : Natural) is
-   use Move_Hash_Set;
-      count      : Ada.Containers.Count_Type := 0;
-      iterations : Integer := 0;
-      b          : Game_State;
-      still_missing : Move_Hash_Set.Set := Empty_Set;
+      use Move_Hash_Set;
+      count       : Ada.Containers.Count_Type := 0;
+      iterations  : Integer := 0;
+      current_set : Move_Hash_Set.Set;
    begin
-      while Unknown_Move_Book.Current_Use > 0 loop
-         if count = 0 then
-            iterations := @ + 1;
-            count := Unknown_Move_Book.Current_Use;
-            still_missing.Clear;
-            Ada.Text_IO.Put_Line
-              ("** Iteration "
-               & iterations'Image
-               & " Missing boards: "
-               & count'Image);
-         end if;
-         if count mod 1_000_000 = 0 then
-            Ada.Text_IO.Put_Line
-              ("*** Iteration "
-               & iterations'Image
-               & " Boards left: "
-               & count'Image);
-         end if;            
-         Unknown_Move_Book.Dequeue (b);
-         -- Don't repeatedly do the same item at the same iterations;
-         -- make sure we redo items at a higher iterations
-         if not still_missing.Contains(b) then
-            Add_Move (b, depth * iterations);
-         end if;
-         if not Is_Book_Move (b) and then not still_missing.Contains (b) then
-            still_missing.Insert(b);   
-         end if;
-         count := @ - 1;
+      while Unknown_Move_Book.Length > 0 loop
+         iterations := @ + 1;
+         current_set := Unknown_Move_Book;
+         Unknown_Move_Book := Empty_Set;
+         count := current_set.Length;
+         Ada.Text_IO.Put_Line
+           ("** Iteration "
+            & iterations'Image
+            & " Missing boards: "
+            & count'Image);
+         for b of current_set loop
+            if count mod 1_000_000 = 0 then
+               Ada.Text_IO.Put_Line
+                 ("*** Iteration "
+                  & iterations'Image
+                  & " Boards left: "
+                  & count'Image);
+               Add_Move (b, depth * iterations);
+               count := @ - 1;
+            end if;
+         end loop;
       end loop;
    end Add_Missing;
 

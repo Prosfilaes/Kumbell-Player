@@ -1,5 +1,6 @@
 pragma Restrictions (No_Obsolescent_Features);
 
+with Ada.Text_IO;
 with Board;
 with Move_Book;
 
@@ -13,6 +14,8 @@ begin
    for i in Board.Board_Spot(1) .. 12 loop
       b.board(i) := 2;
    end loop;
+   Ada.Text_IO.Put_Line ("* Loaded book and starting " & Board.To_String(b));
    Move_Book.Add_Move (b, 10);
    Move_Book.Add_Missing (10);
+   Move_Book.Dump_Move_Book (Ada.Text_IO.Standard_Output);
 end Build_From_Start;
