@@ -2,6 +2,7 @@ with Ada.Integer_Text_IO;
 with Ada.Text_IO.Unbounded_IO;
 with Ada.Containers; use Ada.Containers;
 with Ada.Containers.Hashed_Maps;
+with Ada.Containers.Hashed_Sets;
 with Ada.Containers.Vectors;
 with Ada.Containers.Unbounded_Synchronized_Queues;
 with Ada.Containers.Synchronized_Queue_Interfaces;
@@ -29,6 +30,13 @@ package body Move_Book is
         Equivalent_Keys => Is_Equal);
 
    Game_Book : Move_Hash_Map.Map;
+
+   package Move_Hash_Set is new
+     Ada.Containers.Hashed_Sets
+       (Element_Type        => Game_State,
+        Equivalent_Elements => Is_Equal,
+        Hash            => Hash);
+
 
    package Move_Queue_Interface is new
      Ada.Containers.Synchronized_Queue_Interfaces (Game_State);
@@ -269,22 +277,39 @@ package body Move_Book is
    end Dump_Move_Book;
 
    procedure Add_Missing (depth : Natural) is
+   use Move_Hash_Set;
       count      : Ada.Containers.Count_Type := 0;
       iterations : Integer := 0;
       b          : Game_State;
+      still_missing : Move_Hash_Set.Set := Empty_Set;
    begin
       while Unknown_Move_Book.Current_Use > 0 loop
          if count = 0 then
             iterations := @ + 1;
             count := Unknown_Move_Book.Current_Use;
+            still_missing.Clear;
             Ada.Text_IO.Put_Line
               ("** Iteration "
                & iterations'Image
                & " Missing boards: "
                & count'Image);
          end if;
+         if count mod 1_000_000 = 0 then
+            Ada.Text_IO.Put_Line
+              ("*** Iteration "
+               & iterations'Image
+               & " Boards left: "
+               & count'Image);
+         end if;            
          Unknown_Move_Book.Dequeue (b);
-         Add_Move (b, depth * iterations);
+         -- Don't repeatedly do the same item at the same iterations;
+         -- make sure we redo items at a higher iterations
+         if not still_missing.Contains(b) then
+            Add_Move (b, depth * iterations);
+         end if;
+         if not Is_Book_Move (b) and then not still_missing.Contains (b) then
+            still_missing.Insert(b);   
+         end if;
          count := @ - 1;
       end loop;
    end Add_Missing;
