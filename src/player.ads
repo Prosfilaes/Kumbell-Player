@@ -1,7 +1,8 @@
 package Player is
     
-    type Player is range 1 .. 2;
+    type Winner_Type is range -1 .. 1;
+    type Player_Type is range 1 .. 2;
 
-    function next (p: Player) return Player;
-    function to_string (p : Player) return String;
+    function Next (p: Player_Type) return Player_Type;
+    function To_String (p : Player_Type) return String;
 end Player;
