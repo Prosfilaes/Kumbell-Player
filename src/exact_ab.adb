@@ -8,11 +8,32 @@ package body Exact_AB is
       score    : Winner_Type;
    end record;
 
+   function Player1_Search
+     (b     : Game_State_Type;
+      alpha : Winner_Type;
+      beta  : Winner_Type;
+      depth : Integer) return Winner_Score;
+
    function Player2_Search
      (b     : Game_State_Type;
       alpha : Winner_Type;
       beta  : Winner_Type;
       depth : Integer) return Winner_Score;
+
+   function Player_Search
+     (b     : Game_State_Type;
+      alpha : Winner_Type;
+      beta  : Winner_Type;
+      depth : Integer) return Winner_Score
+   with inline
+   is
+   begin
+      if b.curr_player = 1 then
+         return Player1_Search (b, alpha, beta, depth);
+      else
+         return Player2_Search (b, alpha, beta, depth);
+      end if;
+   end Player_Search;
 
    function Player1_Search
      (b     : Game_State_Type;
@@ -50,7 +71,7 @@ package body Exact_AB is
       for m of Every_Move (b) loop
          end_array := @ + 1;
          scores (end_array) :=
-           Player2_Search (Move (b, m), alpha, new_beta, depth);
+           Player_Search (Move (b, m), alpha, new_beta, depth);
          if (scores (end_array).resolved and scores (end_array).score <= alpha)
          then
             return scores (end_array);
@@ -90,7 +111,7 @@ package body Exact_AB is
          if Is_Legal_Move (b, m) then
             end_array := @ + 1;
             scores (end_array) :=
-              Player1_Search (Move (b, m), new_alpha, beta, depth - 1);
+              Player_Search (Move (b, m), new_alpha, beta, depth - 1);
             if -- "scores (end_array) = Winner_Score'(True, 1) or" subsumed by beta
                (scores (end_array).resolved
                 and scores (end_array).score >= beta)
