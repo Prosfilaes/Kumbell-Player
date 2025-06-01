@@ -37,7 +37,7 @@ package Board is
 
 private
 
-   type Piece_Count is range 0 .. 72;
+   type Piece_Count is range 0 .. 48;
    type Board_Spot is range 1 .. 12;
    type Move_Type is new Board_Spot;
    type Board_Board_Type is array (Board_Spot) of Piece_Count;

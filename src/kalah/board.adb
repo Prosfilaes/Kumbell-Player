@@ -1,4 +1,5 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with Ada.Text_IO;
 
 package body Board is
    Total_Piece_Number : constant := Piece_Count'Last;
@@ -11,6 +12,9 @@ package body Board is
       new_board.board.board :=
         Board_Board_Type'(4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4);
       new_board.board.store := Board_Store_Type'(0, 0);
+      --new_board.board.board :=
+      --  Board_Board_Type'(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0);
+      --new_board.board.store := Board_Store_Type'(19, 19);
       new_board.curr_player := 1;
       return new_board;
    end;
@@ -159,13 +163,18 @@ package body Board is
       declare
          Ml           : Move_List (1 .. Count);
          Curr_Element : Move_Type := 1;
+         i : Integer := 1;
       begin
-         for i in 1 .. Count loop
+         while true loop
             while not Legal_Moves (Curr_Element) loop
                Curr_Element := @ + 1;
             end loop;
             Ml (i) := Curr_Element;
+            if i = Count then
+               return Ml;
+            end if;
             Curr_Element := @ + 1;
+            i := @ + 1;
          end loop;
          return Ml;
       end;
