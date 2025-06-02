@@ -8,12 +8,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Exact_AB;
 
 package body Move_Book is
-   function Hash (b : Game_State_Type) return Ada.Containers.Hash_Type is
-      type Board_Bytes is mod 2**64;
-      cb : constant Board_Bytes := Board_Bytes (Compress (b));
-   begin
-      return Ada.Containers.Hash_Type (cb mod 2**32 xor (cb / 2**32));
-   end Hash;
+
 
    function Is_Equal (a, b : Game_State_Type) return Boolean is
    begin
@@ -54,10 +49,14 @@ package body Move_Book is
          raise Constraint_Error with "Invalid score in Get_Move_Score_Type";
       end if;
       end_pos := start_pos + 1;
+      while (end_pos < s'Last and s (end_pos) = ' ') loop
+         end_pos := end_pos + 1;
+      end loop;
       while (end_pos < s'Last and s (end_pos) /= ' ') loop
          end_pos := end_pos + 1;
       end loop;
       sms.move := Move_Type_from_String (s (start_pos + 1 .. end_pos));
+      sms.Exact := true;
       return sms;
    end Get_Move_Score_Type;
 
@@ -128,7 +127,7 @@ package body Move_Book is
 
    procedure Missing_Move_Insert (b : Game_State_Type) is
    begin
-      if not Unknown_Move_Book.Contains (b) then
+      if Unknown_Move_Book.Length < 2_000_000 and then not Unknown_Move_Book.Contains (b) then
          Unknown_Move_Book.Insert (b);
       end if;
    end Missing_Move_Insert;
@@ -144,10 +143,10 @@ package body Move_Book is
       sms := Exact_AB.Best_Move (b, depth);
       if sms.exact then
          Game_Book.Insert (b, sms);
+         Ada.Text_IO.Put_Line
+           ("*** Solved " & sms.Score'Image & " -- " & cb'Image & " " & To_String (b));
       else
          Missing_Move_Insert (b);
-         Ada.Text_IO.Put_Line
-           ("*** Didn't conclude -" & cb'Image & " " & To_String (b));
       end if;
    end Add_Move;
 
@@ -166,10 +165,9 @@ package body Move_Book is
       board_found := False;
       for b_sms in per_cat_map.Iterate loop
          declare
-            b            : constant Game_State_Type :=
-              Move_Hash_Map.Key (b_sms);
-            sms          : Move_Score_Type;
-            cb           : Compressed_Board;
+            b   : constant Game_State_Type := Move_Hash_Map.Key (b_sms);
+            sms : Move_Score_Type;
+            cb  : Compressed_Board;
          begin
             sms := Move_Hash_Map.Element (b_sms);
             cb := Compress (b);
@@ -240,35 +238,35 @@ package body Move_Book is
    procedure Add_Missing (depth : Natural) is
       use Move_Hash_Set;
       count       : Ada.Containers.Count_Type := 0;
-      count_old : Ada.Containers.Count_Type := 0;
       iterations  : Integer := 0;
       current_set : Move_Hash_Set.Set;
    begin
       while Unknown_Move_Book.Length > 0 loop
          iterations := @ + 1;
          current_set := Unknown_Move_Book;
-         count_old := Unknown_Move_Book.Length;
          Unknown_Move_Book := Empty_Set;
          count := current_set.Length;
-         pragma Assert (count = count_old);
+         
          Ada.Text_IO.Put_Line
            ("** Iteration "
             & iterations'Image
             & " Missing boards: "
             & count'Image);
          for b of current_set loop
-            --if count mod 1_000_000 = 0 then
-            Ada.Text_IO.Put_Line
-              ("*** Iteration "
-               & iterations'Image
-               & " Boards left: "
-               & count'Image
-               & " "
-               & To_String (b));
-            --end if;
+            if count mod 1_000 = 0 then
+               Ada.Text_IO.Put_Line
+                 ("*** Iteration "
+                  & iterations'Image
+                  & " Boards left: "
+                  & count'Image
+                  & " "
+                  & To_String (b));
+            end if;
             Add_Move (b, depth * iterations);
             count := @ - 1;
          end loop;
+         Ada.Text_IO.Put_Line (Ada.Text_IO.Standard_Error, "*** Cut here ***");
+         Dump_Move_Book (Ada.Text_IO.Standard_Error);
       end loop;
    end Add_Missing;
 
