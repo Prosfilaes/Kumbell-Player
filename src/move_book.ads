@@ -9,7 +9,7 @@ package Move_Book is
       Score : Winner_Type;
       Exact : Boolean;
    end record;
-   procedure Load_Book (filename : String);
+   procedure Load_Book (infilename : String; outfilename : String := "");
    function Is_Book_Move (b : Game_State_Type) return Boolean
    with Inline;
    function Get_Score (b : Game_State_Type) return Winner_Type
@@ -19,7 +19,7 @@ package Move_Book is
    procedure Add_Move (b : Game_State_Type; depth : Natural)
    with Pre => Is_Legal_Board (b) and then not Game_Over (b);
    procedure Dump_Move_Book (f : Ada.Text_IO.File_Type);
-   procedure Add_Missing (depth : Natural);
+   procedure Add_Missing (depth : Natural; filename : String);
    procedure Missing_Move_Insert (b : Game_State_Type);
 
 end move_book;

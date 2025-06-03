@@ -11,11 +11,8 @@ package body Board is
       new_board : Game_State_Type;
    begin
       new_board.board.board :=
-        Board_Board_Type'(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2);
-      new_board.board.store := Board_Store_Type'(6, 6);
-      --new_board.board.board :=
-      --  Board_Board_Type'(3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3);
-      --new_board.board.store := Board_Store_Type'(0, 0);
+        Board_Board_Type'(3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3);
+      new_board.board.store := Board_Store_Type'(0, 0);
       new_board.curr_player := 1;
       return new_board;
    end;

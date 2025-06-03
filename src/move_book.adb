@@ -9,7 +9,6 @@ with Exact_AB;
 
 package body Move_Book is
 
-
    function Is_Equal (a, b : Game_State_Type) return Boolean is
    begin
       return a = b;
@@ -60,12 +59,14 @@ package body Move_Book is
       return sms;
    end Get_Move_Score_Type;
 
-   procedure Load_Book (filename : String) is
+   Update_File : Ada.Text_IO.File_Type;
+
+   procedure Load_Book (infilename : String; outfilename : String := "") is
    begin
       declare
          File : Ada.Text_IO.File_Type;
       begin
-         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, filename);
+         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, infilename);
          while not Ada.Text_IO.End_Of_File (File) loop
             declare
                Line        : constant string := Ada.Text_IO.Get_Line (File);
@@ -107,6 +108,9 @@ package body Move_Book is
          Ada.Text_IO.Close (File);
 
       end;
+      if outfilename /= "" then
+         Ada.Text_IO.Create (Update_File, Ada.Text_IO.Out_File, outfilename);
+      end if;
       return;
    end Load_Book;
 
@@ -127,10 +131,26 @@ package body Move_Book is
 
    procedure Missing_Move_Insert (b : Game_State_Type) is
    begin
-      if Unknown_Move_Book.Length < 2_000_000 and then not Unknown_Move_Book.Contains (b) then
+      if not Unknown_Move_Book.Contains (b) then
          Unknown_Move_Book.Insert (b);
       end if;
    end Missing_Move_Insert;
+
+   function To_Move_Table_Line (b : Game_State_Type; sms : Move_Score_Type) return String
+   is
+      cb : constant Compressed_Board := Compress (b);
+   begin
+      return
+        (cb'Image
+         & (if sms.score = -1
+            then " 1 "
+            elsif sms.score = 1
+            then " 2 "
+            else " 0 ")
+         & Move_Type'Image (sms.move)
+         & " "
+         & To_String (b));
+   end To_Move_Table_Line;
 
    procedure Add_Move (b : Game_State_Type; depth : Natural) is
       cb  : constant Compressed_Board := Compress (b);
@@ -142,9 +162,15 @@ package body Move_Book is
 
       sms := Exact_AB.Best_Move (b, depth);
       if sms.exact then
+         Ada.Text_IO.Put_Line (Update_File, To_Move_Table_Line (b, sms));
          Game_Book.Insert (b, sms);
          Ada.Text_IO.Put_Line
-           ("*** Solved " & sms.Score'Image & " -- " & cb'Image & " " & To_String (b));
+           ("*** Solved "
+            & sms.Score'Image
+            & " -- "
+            & cb'Image
+            & " "
+            & To_String (b));
       else
          Missing_Move_Insert (b);
       end if;
@@ -167,42 +193,15 @@ package body Move_Book is
          declare
             b   : constant Game_State_Type := Move_Hash_Map.Key (b_sms);
             sms : Move_Score_Type;
-            cb  : Compressed_Board;
          begin
             sms := Move_Hash_Map.Element (b_sms);
-            cb := Compress (b);
             if not board_found then
                board_found := True;
                Ada.Text_IO.Put_Line (f, "");
                Ada.Text_IO.Put_Line (f, "== " & cat_title & " ==");
             end if;
-            if sms.score = -1 then
-               board_list.Append
-                 (To_Unbounded_String
-                    (cb'Image
-                     & " 1 "
-                     & Move_Type'Image (sms.move)
-                     & " "
-                     & To_String (b)));
-            elsif sms.score = 1 then
-               board_list.Append
-                 (To_Unbounded_String
-                    (cb'Image
-                     & " 2 "
-                     & Move_Type'Image (sms.move)
-                     & " "
-                     & To_String (b)));
-            elsif sms.score = 0 then
-               board_list.Append
-                 (To_Unbounded_String
-                    (cb'Image
-                     & " 0 "
-                     & Move_Type'Image (sms.move)
-                     & " "
-                     & To_String (b)));
-            else
-               raise Constraint_Error;
-            end if;
+            board_list.Append
+              (To_Unbounded_String (To_Move_Table_Line (b, sms)));
          end;
       end loop;
 
@@ -235,18 +234,28 @@ package body Move_Book is
       end loop;
    end Dump_Move_Book;
 
-   procedure Add_Missing (depth : Natural) is
+   procedure Add_Missing (depth : Natural; filename : String) is
       use Move_Hash_Set;
       count       : Ada.Containers.Count_Type := 0;
       iterations  : Integer := 0;
       current_set : Move_Hash_Set.Set;
+      out_file    : Ada.Text_IO.File_Type;
    begin
       while Unknown_Move_Book.Length > 0 loop
          iterations := @ + 1;
          current_set := Unknown_Move_Book;
          Unknown_Move_Book := Empty_Set;
          count := current_set.Length;
-         
+
+         if count > 1_000_000 then
+            Ada.Text_IO.Put_Line
+              ("** Bailing out, missing boards: " & count'Image);
+            Ada.Text_IO.Create (out_file, Ada.Text_IO.Out_File, filename);
+            for b of current_set loop
+               Ada.Text_IO.Put_Line (out_file, Compress (b)'Image);
+            end loop;
+            return;
+         end if;
          Ada.Text_IO.Put_Line
            ("** Iteration "
             & iterations'Image
@@ -265,9 +274,8 @@ package body Move_Book is
             Add_Move (b, depth * iterations);
             count := @ - 1;
          end loop;
-         Ada.Text_IO.Put_Line (Ada.Text_IO.Standard_Error, "*** Cut here ***");
-         Dump_Move_Book (Ada.Text_IO.Standard_Error);
       end loop;
+
    end Add_Missing;
 
 end Move_Book;
