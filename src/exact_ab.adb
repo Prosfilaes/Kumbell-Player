@@ -138,7 +138,7 @@ package body Exact_AB is
    function Best_Move
      (b : Game_State_Type; depth : Natural) return Move_Score_Type
    is
-      best_score   : Winner_Type := -1;
+      best_score   : Winner_Type := 1;
       best_move    : Move_Type;
       new_board    : Game_State_Type;
       new_score    : Winner_Score;
@@ -162,8 +162,8 @@ package body Exact_AB is
                return Move_Score_Type'(m, -1, True);
             end if;
             if new_score.resolved and all_resolved then
-               if new_score.score = 0 then
-                  best_score := 0;
+               if new_score.score < best_score  then
+                  best_score := new_score.score;
                   best_move := m;
                end if;
             else
@@ -173,6 +173,7 @@ package body Exact_AB is
          end loop;
          return Move_Score_Type'(best_move, best_score, all_resolved);
       else
+         raise Constraint_Error;
          for m of Every_Move (b) loop
 
             if not found_move then

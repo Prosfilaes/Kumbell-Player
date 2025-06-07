@@ -1,10 +1,22 @@
 with Player; use Player;
 with Ada.Containers;
+with Ada.Containers.Vectors;
 
 package Board is
+   -- These should be private, but it won't let me create a vector type if they're private
+   type Piece_Count is range 0 .. 36;
+   type Board_Spot is range 1 .. 12;
+   type Move_Type is new Board_Spot;
+   type Board_Board_Type is array (Board_Spot) of Piece_Count;
+   type Board_Store_Type is array (Player_Type) of Piece_Count;
+   -- End private types
+   type Board_Type is record
+      board : Board_Board_Type;
+      store : Board_Store_Type;
+   end record;
 
-   type Board_Type is private;
-   type Move_Type is private;
+   -- type Board_Type is private;
+   -- type Move_Type is private;
    type Score_Type is range -127 .. 127;
 
    type Game_State_Type is record
@@ -20,6 +32,7 @@ package Board is
    function Game_Over (b : Game_State_Type) return Boolean;
    function Winner (b : Game_State_Type) return Winner_Type
    with Pre => Game_Over (b);
+
    type Move_List is array (Integer range <>) of Move_Type;
    function Every_Move (b : Game_State_Type) return Move_List;
    function Move (b : Game_State_Type; m : Move_Type) return Game_State_Type;
@@ -36,17 +49,19 @@ package Board is
    function Categorize (b : Game_State_Type) return Board_Categories_Type;
    function Title_Line (bc : Board_Categories_Type) return String;
    function Hash (b : Game_State_Type) return Ada.Containers.Hash_Type;
+   package Board_Vectors is new Ada.Containers.Vectors (Natural, Game_State_Type);
+   function Base_Boards return Board_Vectors.Vector;
 
-private
+--private
 
-   type Piece_Count is range 0 .. 36;
-   type Board_Spot is range 1 .. 12;
-   type Move_Type is new Board_Spot;
-   type Board_Board_Type is array (Board_Spot) of Piece_Count;
-   type Board_Store_Type is array (Player_Type) of Piece_Count;
-   type Board_Type is record
-      board : Board_Board_Type;
-      store : Board_Store_Type;
-   end record;
+   --type Piece_Count is range 0 .. 36;
+   --type Board_Spot is range 1 .. 12;
+   --type Move_Type is new Board_Spot;
+   --type Board_Board_Type is array (Board_Spot) of Piece_Count;
+   --type Board_Store_Type is array (Player_Type) of Piece_Count;
+   --type Board_Type is record
+   --   board : Board_Board_Type;
+   --   store : Board_Store_Type;
+   --end record;
 
 end Board;

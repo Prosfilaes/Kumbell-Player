@@ -1,6 +1,5 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with Ada.Text_IO;
-with Ada.Containers; use Ada.Containers;
+with Ada.Containers;        use Ada.Containers;
 
 package body Board is
    Total_Piece_Number : constant := Piece_Count'Last;
@@ -91,7 +90,7 @@ package body Board is
    function Game_Over (b : Game_State_Type) return Boolean is
       p : Piece_Count;
    begin
-      if b.board.store (1) >= 25 or else b.board.store (2) >= 25 then
+      if b.board.store (1) >= 19 or else b.board.store (2) >= 19 then
          return true;
       end if;
       if b.curr_player = 1 then
@@ -126,7 +125,9 @@ package body Board is
       if player2 > Total_Piece_Number / 2 then
          return 1;
       end if;
-      if player1 = Total_Piece_Number / 2 and then player2 = Total_Piece_Number / 2 then
+      if player1 = Total_Piece_Number / 2
+        and then player2 = Total_Piece_Number / 2
+      then
          return 0;
       end if;
       if b.curr_player = 1 then
@@ -288,7 +289,6 @@ package body Board is
       return B;
    end Decompress;
 
-
    function Categorize (b : Game_State_Type) return Board_Categories_Type is
    begin
       return
@@ -331,12 +331,62 @@ package body Board is
    function Hash (b : Game_State_Type) return Ada.Containers.Hash_Type is
       ht : Ada.Containers.Hash_Type;
    begin
-      ht := Ada.Containers.Hash_Type (b.board.store(1));
+      ht := Ada.Containers.Hash_Type (b.board.store (1));
       for i in Board_Spot'(1) .. 12 loop
-      ht := 3 * @ + Ada.Containers.Hash_Type (b.board.board(i));
+         ht := 3 * @ + Ada.Containers.Hash_Type (b.board.board (i));
       end loop;
       return ht;
    end Hash;
+
+   function Base_Boards return Board_Vectors.Vector is
+      ml : Board_Vectors.Vector;
+
+      procedure Add_Chunk_Rec
+        (b : Game_State_Type; depth : Integer; min_spot : Board_Spot)
+      is
+         new_b : Game_State_Type;
+      begin
+         if depth = 0 then
+            pragma Assert (Is_Legal_Board (b));
+            if not Game_Over (b) then
+               ml.Append (b);
+            end if;
+         else
+            new_b := b;
+            for i in Board_Spot'(min_spot) .. 12 loop
+               new_b.board.board (i) := @ + 1;
+               Add_Chunk_Rec (new_b, depth - 1, i);
+               new_b.board.board (i) := @ - 1;
+            end loop;
+         end if;
+      end Add_Chunk_Rec;
+
+      procedure Add_Chunk
+        (player1_score : Piece_Count; player2_score : Piece_Count)
+      is
+         depth : constant Integer :=
+           Total_Piece_Number
+           - (Integer (player1_score) + Integer (player2_score));
+         b     : Game_State_Type;
+      begin
+         b.curr_player := 1;
+         b.board.store (1) := player1_score;
+         b.board.store (2) := player2_score;
+         for i in Board_Spot'(1) .. 12 loop
+            b.board.board (i) := 0;
+         end loop;
+         Add_Chunk_Rec (b, depth, 1);
+      end Add_Chunk;
+
+   begin
+      -- List all boards with up to 16 pieces on the board
+      for i in Piece_Count'(1) .. 16 loop
+         for j in Piece_Count'(18) - i .. 18 loop
+            Add_Chunk (36 - i - j, j);
+         end loop;
+      end loop;
+      return ml;
+   end Base_Boards;
 
    -- Fallback
    --function Hash (b : Game_State_Type) return Ada.Containers.Hash_Type is

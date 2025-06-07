@@ -2,7 +2,6 @@ with Ada.Integer_Text_IO;
 with Ada.Text_IO.Unbounded_IO;
 with Ada.Containers;        use Ada.Containers;
 with Ada.Containers.Hashed_Maps;
-with Ada.Containers.Hashed_Sets;
 with Ada.Containers.Vectors;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Exact_AB;
@@ -22,14 +21,6 @@ package body Move_Book is
         Equivalent_Keys => Is_Equal);
 
    Game_Book : Move_Hash_Map.Map;
-
-   package Move_Hash_Set is new
-     Ada.Containers.Hashed_Sets
-       (Element_Type        => Game_State_Type,
-        Equivalent_Elements => Is_Equal,
-        Hash                => Hash);
-
-   Unknown_Move_Book : Move_Hash_Set.Set;
 
    function Get_Move_Score_Type (s : String) return Move_Score_Type is
       sms       : Move_Score_Type;
@@ -59,9 +50,15 @@ package body Move_Book is
       return sms;
    end Get_Move_Score_Type;
 
-   Update_File : Ada.Text_IO.File_Type;
+   Update_File        : Ada.Text_IO.File_Type;
+   Update_File_Open   : Boolean := false;
+   Out_Work_File      : Ada.Text_IO.File_Type;
+   Out_Work_File_Open : Boolean := false;
 
-   procedure Load_Book (infilename : String; outfilename : String := "") is
+   procedure Load_Book
+     (infilename      : String;
+      outfilename     : String := "";
+      outworkfilename : String := "") is
    begin
       declare
          File : Ada.Text_IO.File_Type;
@@ -109,7 +106,13 @@ package body Move_Book is
 
       end;
       if outfilename /= "" then
+         Update_File_Open := True;
          Ada.Text_IO.Create (Update_File, Ada.Text_IO.Out_File, outfilename);
+      end if;
+      if outworkfilename /= "" then
+         Out_Work_File_Open := True;
+         Ada.Text_IO.Create
+           (Out_Work_File, Ada.Text_IO.Out_File, outworkfilename);
       end if;
       return;
    end Load_Book;
@@ -131,12 +134,11 @@ package body Move_Book is
 
    procedure Missing_Move_Insert (b : Game_State_Type) is
    begin
-      if not Unknown_Move_Book.Contains (b) then
-         Unknown_Move_Book.Insert (b);
-      end if;
+      Ada.Text_IO.Put_Line (Out_Work_File, Compress (b)'Image);
    end Missing_Move_Insert;
 
-   function To_Move_Table_Line (b : Game_State_Type; sms : Move_Score_Type) return String
+   function To_Move_Table_Line
+     (b : Game_State_Type; sms : Move_Score_Type) return String
    is
       cb : constant Compressed_Board := Compress (b);
    begin
@@ -146,7 +148,8 @@ package body Move_Book is
             then " 1 "
             elsif sms.score = 1
             then " 2 "
-            else " 0 ")
+            elsif sms.score = 0 then " 0 "
+            else "xxx")
          & Move_Type'Image (sms.move)
          & " "
          & To_String (b));
@@ -234,48 +237,16 @@ package body Move_Book is
       end loop;
    end Dump_Move_Book;
 
-   procedure Add_Missing (depth : Natural; filename : String) is
-      use Move_Hash_Set;
-      count       : Ada.Containers.Count_Type := 0;
-      iterations  : Integer := 0;
-      current_set : Move_Hash_Set.Set;
-      out_file    : Ada.Text_IO.File_Type;
+   procedure Close is
    begin
-      while Unknown_Move_Book.Length > 0 loop
-         iterations := @ + 1;
-         current_set := Unknown_Move_Book;
-         Unknown_Move_Book := Empty_Set;
-         count := current_set.Length;
-
-         if count > 1_000_000 then
-            Ada.Text_IO.Put_Line
-              ("** Bailing out, missing boards: " & count'Image);
-            Ada.Text_IO.Create (out_file, Ada.Text_IO.Out_File, filename);
-            for b of current_set loop
-               Ada.Text_IO.Put_Line (out_file, Compress (b)'Image);
-            end loop;
-            return;
-         end if;
-         Ada.Text_IO.Put_Line
-           ("** Iteration "
-            & iterations'Image
-            & " Missing boards: "
-            & count'Image);
-         for b of current_set loop
-            if count mod 1_000 = 0 then
-               Ada.Text_IO.Put_Line
-                 ("*** Iteration "
-                  & iterations'Image
-                  & " Boards left: "
-                  & count'Image
-                  & " "
-                  & To_String (b));
-            end if;
-            Add_Move (b, depth * iterations);
-            count := @ - 1;
-         end loop;
-      end loop;
-
-   end Add_Missing;
+      if Update_File_Open then
+         Ada.Text_IO.Close (Update_File);
+         Update_File_Open := false;
+      end if;
+      if Out_Work_File_Open then
+         Ada.Text_IO.Close (Out_Work_File);
+         Out_Work_File_Open := false;
+      end if;
+   end Close;
 
 end Move_Book;
