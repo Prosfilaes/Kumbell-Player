@@ -1,4 +1,3 @@
-with Player;    use Player;
 with Move_Book; use Move_Book;
 
 package body Exact_AB is
@@ -47,13 +46,14 @@ package body Exact_AB is
       new_beta     : Winner_Type := beta;
       all_resolved : Boolean := True;
       value        : Winner_Type := 1;
+      cb : constant Compressed_Board := Compress (b);
    begin
       if Game_Over (b) then
          return Winner_Score'(True, Board.Winner (b));
       end if;
-      if Move_Book.Is_Book_Move (b) then
+      if Move_Book.Is_Book_Move (cb) then
          declare
-            sms : constant Move_Score_Type := Move_Book.Get_Move (b);
+            sms : constant Move_Score_Type := Move_Book.Get_Move (cb);
          begin
             if sms.Exact then
                return Winner_Score'(True, sms.Score);
@@ -64,7 +64,7 @@ package body Exact_AB is
       end if;
 
       if depth <= 0 then
-         Move_Book.Missing_Move_Insert (b);
+         Move_Book.Missing_Move_Insert (cb);
          return Winner_Score'(False, 0);
       end if;
 
@@ -149,7 +149,6 @@ package body Exact_AB is
       -- whether or not we have other unsolved positions.
       -- Draws or loses need solutions at all points, unless
       -- the best we can pull is a draw
-      if b.curr_player = 1 then
          for m of Every_Move (b) loop
 
             if not found_move then
@@ -172,31 +171,6 @@ package body Exact_AB is
 
          end loop;
          return Move_Score_Type'(best_move, best_score, all_resolved);
-      else
-         raise Constraint_Error;
-         for m of Every_Move (b) loop
-
-            if not found_move then
-               best_move := m;
-               found_move := True;
-            end if;
-            new_board := move (b, m);
-            new_score := Player1_Search (new_board, -1, 1, depth);
-            if new_score.score = 1 and new_score.resolved then
-               return Move_Score_Type'(m, 1, True);
-            end if;
-            if new_score.resolved and all_resolved then
-               if new_score.score = 0 then
-                  best_score := 0;
-                  best_move := m;
-               end if;
-            else
-               all_resolved := false;
-            end if;
-
-         end loop;
-         return Move_Score_Type'(best_move, best_score, all_resolved);
-      end if;
    end Best_Move;
 
 end Exact_AB;

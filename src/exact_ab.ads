@@ -1,10 +1,11 @@
 with Board; use Board;
 with Move_Book;
+with Player; use Player;
 
 package Exact_AB is
 
     function Best_Move (b: Game_State_Type; depth : Natural) return Move_Book.Move_Score_Type
-    with Pre => not Game_Over (b);
+    with Pre => not Game_Over (b) and then b.curr_player = 1;
     Stack_Overflow_Error : exception;
 
 end Exact_AB;

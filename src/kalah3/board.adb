@@ -215,20 +215,45 @@ package body Board is
       return Move_Type'Value (s);
    end Move_Type_from_String;
 
-   function Binomial (N, K : Natural) return Compressed_Board is
-      Result : Compressed_Board := 1;
+   subtype Index is Natural range 0 .. 100;
+   type Binom_Table_Type is array (Index, Index) of Compressed_Board;
+
+   -- Precomputed table of Binomial coefficients
+   Binom_Table : Binom_Table_Type;
+
+   -- Fill Pascal’s triangle
+   procedure Init_Binom is
    begin
-      if K > N then
-         return 0;
+   for n in Index loop
+      Binom_Table(n, 0) := 1;
+      Binom_Table(n, n) := 1;
+   end loop;
+
+   for n in Index loop
+      if n >= 2 then  -- minimum where k = 1 .. n-1 is valid
+         for k in 1 .. n - 1 loop
+            Binom_Table(n, k) := Binom_Table(n - 1, k - 1) + Binom_Table(n - 1, k);
+         end loop;
+      end if;
+    end loop;
+   end Init_Binom;
+
+   Initialized : Boolean := False;
+
+   function Binomial (N, K : Index) return Compressed_Board is
+   begin
+      if not Initialized then
+         Init_Binom;
+         Initialized := True;
       end if;
 
-      for i in 1 .. K loop
-         Result :=
-           Result * Compressed_Board (N - i + 1) / Compressed_Board (i);
-      end loop;
-
-      return Result;
+      if K > N then
+         return 0;
+      else
+         return Binom_Table(N, K);
+      end if;
    end Binomial;
+
 
    function Compress (b : Game_State_Type) return Compressed_Board is
       Rank_Value : Compressed_Board := 0;

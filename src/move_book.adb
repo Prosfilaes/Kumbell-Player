@@ -5,19 +5,31 @@ with Ada.Containers.Hashed_Maps;
 with Ada.Containers.Vectors;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Exact_AB;
+with Interfaces; use Interfaces;
 
 package body Move_Book is
 
-   function Is_Equal (a, b : Game_State_Type) return Boolean is
+   function Is_Equal (a, b : Compressed_Board) return Boolean is
    begin
       return a = b;
    end Is_Equal;
 
+   function SplitMix64_Hash (X : Compressed_Board) return Ada.Containers.Hash_Type is
+      Y : Interfaces.Unsigned_64 := Interfaces.Unsigned_64 (X);
+   begin
+      Y := Y xor (Y / 2 ** 30);
+      Y := Y * 16#BF58476D1CE4E5B9#;
+      Y := Y xor (Y / 2 ** 27);
+      Y := Y * 16#94D049BB133111EB#;
+      Y := Y xor (Y / 2 ** 31);
+      return Ada.Containers.Hash_Type (Y / 2 ** 32);  -- Top 32 bits
+   end SplitMix64_Hash;
+
    package Move_Hash_Map is new
      Ada.Containers.Hashed_Maps
-       (Key_Type        => Game_State_Type,
+       (Key_Type        => Compressed_Board,
         Element_Type    => Move_Score_Type,
-        Hash            => Hash,
+        Hash            => SplitMix64_Hash,
         Equivalent_Keys => Is_Equal);
 
    Game_Book : Move_Hash_Map.Map;
@@ -89,8 +101,8 @@ package body Move_Book is
                   pragma Assert (Compress (b) = cb);
                   sms :=
                     Get_Move_Score_Type (Line (first_space + 1 .. Line'Last));
-                  if not Game_Book.Contains (b) then
-                     Game_Book.Insert (b, sms);
+                  if not Game_Book.Contains (cb) then
+                     Game_Book.Insert (cb, sms);
                   else
                      Ada.Text_IO.Put_Line
                        (Ada.Text_IO.Standard_Error,
@@ -117,30 +129,29 @@ package body Move_Book is
       return;
    end Load_Book;
 
-   function Is_Book_Move (b : Game_State_Type) return Boolean is
+   function Is_Book_Move (b : Compressed_Board) return Boolean is
    begin
       return Game_Book.Contains (b);
    end Is_Book_Move;
 
-   function Get_Score (b : Game_State_Type) return Winner_Type is
+   function Get_Score (b : Compressed_Board) return Winner_Type is
    begin
       return Game_Book.Element (b).score;
    end Get_Score;
 
-   function Get_Move (b : Game_State_Type) return Move_Score_Type is
+   function Get_Move (b : Compressed_Board) return Move_Score_Type is
    begin
       return Game_Book.Element (b);
    end Get_Move;
 
-   procedure Missing_Move_Insert (b : Game_State_Type) is
+   procedure Missing_Move_Insert (b : Compressed_Board) is
    begin
-      Ada.Text_IO.Put_Line (Out_Work_File, Compress (b)'Image);
+      Ada.Text_IO.Put_Line (Out_Work_File, b'Image);
    end Missing_Move_Insert;
 
    function To_Move_Table_Line
-     (b : Game_State_Type; sms : Move_Score_Type) return String
+     (cb : Compressed_Board; sms : Move_Score_Type) return String
    is
-      cb : constant Compressed_Board := Compress (b);
    begin
       return
         (cb'Image
@@ -152,21 +163,21 @@ package body Move_Book is
             else "xxx")
          & Move_Type'Image (sms.move)
          & " "
-         & To_String (b));
+         & To_String (Decompress(cb)));
    end To_Move_Table_Line;
 
    procedure Add_Move (b : Game_State_Type; depth : Natural) is
       cb  : constant Compressed_Board := Compress (b);
       sms : Move_Score_Type;
    begin
-      if Move_Book.Is_Book_Move (b) then
+      if Move_Book.Is_Book_Move (cb) then
          return;
       end if;
 
       sms := Exact_AB.Best_Move (b, depth);
       if sms.exact then
-         Ada.Text_IO.Put_Line (Update_File, To_Move_Table_Line (b, sms));
-         Game_Book.Insert (b, sms);
+         Ada.Text_IO.Put_Line (Update_File, To_Move_Table_Line (cb, sms));
+         Game_Book.Insert (cb, sms);
          Ada.Text_IO.Put_Line
            ("*** Solved "
             & sms.Score'Image
@@ -175,7 +186,7 @@ package body Move_Book is
             & " "
             & To_String (b));
       else
-         Missing_Move_Insert (b);
+         Missing_Move_Insert (cb);
       end if;
    end Add_Move;
 
@@ -194,7 +205,7 @@ package body Move_Book is
       board_found := False;
       for b_sms in per_cat_map.Iterate loop
          declare
-            b   : constant Game_State_Type := Move_Hash_Map.Key (b_sms);
+            cb   : constant Compressed_Board := Move_Hash_Map.Key (b_sms);
             sms : Move_Score_Type;
          begin
             sms := Move_Hash_Map.Element (b_sms);
@@ -204,7 +215,7 @@ package body Move_Book is
                Ada.Text_IO.Put_Line (f, "== " & cat_title & " ==");
             end if;
             board_list.Append
-              (To_Unbounded_String (To_Move_Table_Line (b, sms)));
+              (To_Unbounded_String (To_Move_Table_Line (cb, sms)));
          end;
       end loop;
 
@@ -221,12 +232,12 @@ package body Move_Book is
    begin
       for b_sms in Game_Book.Iterate loop
          declare
-            b        : constant Game_State_Type := Move_Hash_Map.Key (b_sms);
-            category : constant Board_Categories_Type := Categorize (b);
+            cb        : constant Compressed_Board := Move_Hash_Map.Key (b_sms);
+            category : constant Board_Categories_Type := Categorize (Decompress(cb));
             sms      : constant Move_Score_Type :=
               Move_Hash_Map.Element (b_sms);
          begin
-            Per_Size_Maps (category).Insert (b, sms);
+            Per_Size_Maps (category).Insert (cb, sms);
          end;
       end loop;
 
