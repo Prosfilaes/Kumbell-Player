@@ -5,7 +5,7 @@ with Ada.Containers.Hashed_Maps;
 with Ada.Containers.Vectors;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Exact_AB;
-with Interfaces; use Interfaces;
+with Interfaces;            use Interfaces;
 
 package body Move_Book is
 
@@ -14,15 +14,17 @@ package body Move_Book is
       return a = b;
    end Is_Equal;
 
-   function SplitMix64_Hash (X : Compressed_Board) return Ada.Containers.Hash_Type is
+   function SplitMix64_Hash
+     (X : Compressed_Board) return Ada.Containers.Hash_Type
+   is
       Y : Interfaces.Unsigned_64 := Interfaces.Unsigned_64 (X);
    begin
-      Y := Y xor (Y / 2 ** 30);
+      Y := Y xor (Y / 2**30);
       Y := Y * 16#BF58476D1CE4E5B9#;
-      Y := Y xor (Y / 2 ** 27);
+      Y := Y xor (Y / 2**27);
       Y := Y * 16#94D049BB133111EB#;
-      Y := Y xor (Y / 2 ** 31);
-      return Ada.Containers.Hash_Type (Y / 2 ** 32);  -- Top 32 bits
+      Y := Y xor (Y / 2**31);
+      return Ada.Containers.Hash_Type (Y / 2**32);  -- Top 32 bits
    end SplitMix64_Hash;
 
    package Move_Hash_Map is new
@@ -150,8 +152,8 @@ package body Move_Book is
    end Missing_Move_Insert;
 
    function To_Move_Table_Line
-     (cb : Compressed_Board; sms : Move_Score_Type) return String
-   is
+     (cb : Compressed_Board; sms : Move_Score_Type; terse : Boolean := False)
+      return String is
    begin
       return
         (cb'Image
@@ -159,11 +161,11 @@ package body Move_Book is
             then " 1 "
             elsif sms.score = 1
             then " 2 "
-            elsif sms.score = 0 then " 0 "
+            elsif sms.score = 0
+            then " 0 "
             else "xxx")
          & Move_Type'Image (sms.move)
-         & " "
-         & To_String (Decompress(cb)));
+         & (if terse then "" else (" " & To_String (Decompress (cb)))));
    end To_Move_Table_Line;
 
    procedure Add_Move (b : Game_State_Type; depth : Natural) is
@@ -190,62 +192,53 @@ package body Move_Book is
       end if;
    end Add_Move;
 
+   package Board_Container is new
+     Ada.Containers.Vectors (Natural, Unbounded_String);
+
    procedure Dump_Move_Book_Local
      (f           : Ada.Text_IO.File_Type;
-      per_cat_map : Move_Hash_Map.Map;
+      board_list : in out Board_Container.Vector; -- So it can be sorted without copying it
       cat_title   : String)
    is
-      board_found : Boolean;
-      package Board_Container is new
-        Ada.Containers.Vectors (Natural, Unbounded_String);
-      use Board_Container;
-      package A_Sorter is new Generic_Sorting;
-      board_list  : Vector;
+      package A_Sorter is new Board_Container.Generic_Sorting;
    begin
-      board_found := False;
-      for b_sms in per_cat_map.Iterate loop
-         declare
-            cb   : constant Compressed_Board := Move_Hash_Map.Key (b_sms);
-            sms : Move_Score_Type;
-         begin
-            sms := Move_Hash_Map.Element (b_sms);
-            if not board_found then
-               board_found := True;
-               Ada.Text_IO.Put_Line (f, "");
-               Ada.Text_IO.Put_Line (f, "== " & cat_title & " ==");
-            end if;
-            board_list.Append
-              (To_Unbounded_String (To_Move_Table_Line (cb, sms)));
-         end;
-      end loop;
+      Ada.Text_IO.Put_Line (f, "");
+      Ada.Text_IO.Put_Line (f, "== " & cat_title & " ==");
 
-      if board_found then
-         A_Sorter.Sort (board_list);
-         for line of board_list loop
-            Ada.Text_IO.Unbounded_IO.Put_Line (f, line);
-         end loop;
-      end if;
+      A_Sorter.Sort (board_list);
+      for line of board_list loop
+         Ada.Text_IO.Unbounded_IO.Put_Line (f, line);
+      end loop;
    end Dump_Move_Book_Local;
 
    procedure Dump_Move_Book (f : Ada.Text_IO.File_Type) is
-      Per_Size_Maps : array (Board_Categories_Type) of Move_Hash_Map.Map;
    begin
-      for b_sms in Game_Book.Iterate loop
+      for cat in Board_Categories_Type'Range loop
          declare
-            cb        : constant Compressed_Board := Move_Hash_Map.Key (b_sms);
-            category : constant Board_Categories_Type := Categorize (Decompress(cb));
-            sms      : constant Move_Score_Type :=
-              Move_Hash_Map.Element (b_sms);
+            Per_Size_Maps : Board_Container.Vector;
          begin
-            Per_Size_Maps (category).Insert (cb, sms);
+            for b_sms in Game_Book.Iterate loop
+               declare
+                  cb       : constant Compressed_Board :=
+                    Move_Hash_Map.Key (b_sms);
+                  category : constant Board_Categories_Type :=
+                    Categorize (Decompress (cb));
+                  sms      : constant Move_Score_Type :=
+                    Move_Hash_Map.Element (b_sms);
+               begin
+                  if category = cat then
+                     Per_Size_Maps.Append
+                       (To_Unbounded_String
+                          (To_Move_Table_Line (cb, sms, True)));
+                  end if;
+               end;
+            end loop;
+            if not Per_Size_Maps.Is_Empty then
+               Dump_Move_Book_Local (f, Per_Size_Maps, Title_Line (cat));
+            end if;
          end;
       end loop;
 
-      for cat in Board_Categories_Type'Range loop
-         if not Per_Size_Maps (cat).Is_Empty then
-            Dump_Move_Book_Local (f, Per_Size_Maps (cat), Title_Line (cat));
-         end if;
-      end loop;
    end Dump_Move_Book;
 
    procedure Close is
