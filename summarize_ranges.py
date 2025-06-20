@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import sys
 
 def summarize_ranges(filename):
     with open(filename, 'r') as file:
@@ -13,7 +14,7 @@ def summarize_ranges(filename):
             try:
                 first, second = map(int, line.split())
             except ValueError:
-                print(f"Skipping invalid line: {line}")
+                print(f"Skipping invalid line: {line}", file=sys.stderr)
                 continue
 
             if prev_first is None:

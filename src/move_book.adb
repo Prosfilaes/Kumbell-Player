@@ -1,68 +1,19 @@
-with Ada.Integer_Text_IO;
-with Ada.Text_IO.Unbounded_IO;
-with Ada.Containers;        use Ada.Containers;
-with Ada.Containers.Hashed_Maps;
+with Ada.Containers; use Ada.Containers;
 with Ada.Containers.Vectors;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Exact_AB;
-with Interfaces;            use Interfaces;
 
 package body Move_Book is
 
-   function Is_Equal (a, b : Compressed_Board) return Boolean is
-   begin
-      return a = b;
-   end Is_Equal;
+   type Move_Book_Record is record
+      start_cb : Compressed_Board;
+      end_cb   : Compressed_Board;
+      winner   : Winner_Type;
+   end record;
 
-   function SplitMix64_Hash
-     (X : Compressed_Board) return Ada.Containers.Hash_Type
-   is
-      Y : Interfaces.Unsigned_64 := Interfaces.Unsigned_64 (X);
-   begin
-      Y := Y xor (Y / 2**30);
-      Y := Y * 16#BF58476D1CE4E5B9#;
-      Y := Y xor (Y / 2**27);
-      Y := Y * 16#94D049BB133111EB#;
-      Y := Y xor (Y / 2**31);
-      return Ada.Containers.Hash_Type (Y / 2**32);  -- Top 32 bits
-   end SplitMix64_Hash;
+   package Move_Book_List is new
+     Ada.Containers.Vectors (Natural, Move_Book_Record);
 
-   package Move_Hash_Map is new
-     Ada.Containers.Hashed_Maps
-       (Key_Type        => Compressed_Board,
-        Element_Type    => Move_Score_Type,
-        Hash            => SplitMix64_Hash,
-        Equivalent_Keys => Is_Equal);
-
-   Game_Book : Move_Hash_Map.Map;
-
-   function Get_Move_Score_Type (s : String) return Move_Score_Type is
-      sms       : Move_Score_Type;
-      start_pos : Positive := 1;
-      end_pos   : Positive;
-      i         : Integer;
-   begin
-      Ada.Integer_Text_IO.Get (s, i, start_pos);
-      if i = 0 then
-         sms.Score := 0;
-      elsif i = 1 then
-         sms.Score := -1;
-      elsif i = 2 then
-         sms.Score := 1;
-      else
-         raise Constraint_Error with "Invalid score in Get_Move_Score_Type";
-      end if;
-      end_pos := start_pos + 1;
-      while (end_pos < s'Last and s (end_pos) = ' ') loop
-         end_pos := end_pos + 1;
-      end loop;
-      while (end_pos < s'Last and s (end_pos) /= ' ') loop
-         end_pos := end_pos + 1;
-      end loop;
-      sms.move := Move_Type_from_String (s (start_pos + 1 .. end_pos));
-      sms.Exact := true;
-      return sms;
-   end Get_Move_Score_Type;
+   Game_Book : Move_Book_List.Vector;
 
    Update_File        : Ada.Text_IO.File_Type;
    Update_File_Open   : Boolean := false;
@@ -80,17 +31,16 @@ package body Move_Book is
          Ada.Text_IO.Open (File, Ada.Text_IO.In_File, infilename);
          while not Ada.Text_IO.End_Of_File (File) loop
             declare
-               Line        : constant string := Ada.Text_IO.Get_Line (File);
-               cb          : Compressed_Board;
-               sms         : Move_Score_Type;
-               b           : Game_State_Type;
-               first_space : Integer;
+               Line         : constant string := Ada.Text_IO.Get_Line (File);
+               mbr          : Move_Book_Record;
+               first_space  : Integer;
+               second_space : Integer;
+               winner_read  : Integer;
             begin
                -- Ignore all lines that don't start with a positive number
-               if Line'Length > 16
-                 and then Line (1) = ' '
-                 and then Line (2) >= '1'
-                 and then Line (2) <= '9'
+               if Line'Length > 10
+                 and then Line (1) >= '1'
+                 and then Line (1) <= '9'
                then
                   first_space := 2;
                   while Line (first_space) >= '0'
@@ -98,21 +48,33 @@ package body Move_Book is
                   loop
                      first_space := @ + 1;
                   end loop;
-                  cb := Compressed_Board'Value (Line (1 .. first_space - 1));
-                  b := Decompress (cb);
-                  pragma Assert (Compress (b) = cb);
-                  sms :=
-                    Get_Move_Score_Type (Line (first_space + 1 .. Line'Last));
-                  if not Game_Book.Contains (cb) then
-                     Game_Book.Insert (cb, sms);
+                  mbr.start_cb :=
+                    Compressed_Board'Value (Line (1 .. first_space - 1));
+                  second_space := first_space + 1;
+                  if Line (first_space) = '-' then
+                     while Line (second_space) >= '0'
+                       and then Line (second_space) <= '9'
+                     loop
+                        second_space := @ + 1;
+                     end loop;
+                     mbr.end_cb :=
+                       Compressed_Board'Value
+                         (Line (first_space + 1 .. second_space - 1));
                   else
-                     Ada.Text_IO.Put_Line
-                       (Ada.Text_IO.Standard_Error,
-                        "Duplicate entry in book: "
-                        & cb'Image
-                        & " "
-                        & Line (14 .. Line'Last));
+                     mbr.end_cb := mbr.start_cb;
                   end if;
+                  winner_read :=
+                    Integer'Value (Line (second_space .. Line'Last));
+                  if winner_read = 0 then
+                     mbr.winner := 0;
+                  elsif winner_read = 1 then
+                     mbr.winner := -1;
+                  elsif winner_read = 2 then
+                     mbr.winner := 1;
+                  else
+                     raise Constraint_Error;
+                  end if;
+                  Game_Book.Append (mbr);
                end if;
             end;
          end loop;
@@ -131,20 +93,49 @@ package body Move_Book is
       return;
    end Load_Book;
 
-   function Is_Book_Move (b : Compressed_Board) return Boolean is
+   function Get_Score (b : Compressed_Board) return Option_Winner_Type is
+      First  : Natural := 1;
+      Last   : Natural := Natural (Game_Book.Length);
+      Middle : Natural;
    begin
-      return Game_Book.Contains (b);
-   end Is_Book_Move;
-
-   function Get_Score (b : Compressed_Board) return Winner_Type is
-   begin
-      return Game_Book.Element (b).score;
+      if Last = 0 then
+         return Option_Winner_Type'(False, 0);
+      end if;
+      loop
+         Middle := (First + Last) / 2;
+         -- Loop invariant: First <= Middle <= Last
+         if Game_Book (Middle).start_cb <= b
+           and then Game_Book (Middle).end_cb >= b
+         then
+            return Option_Winner_Type'(True, Game_Book (Middle).winner);
+         elsif Game_Book (Middle).start_cb > b then
+            -- Last can't equal Middle, since / rounds down or towards zero
+            Last := Middle;
+         elsif Game_Book (Middle).end_cb < b then
+            -- If Last - First > 1, then Middle >= First + 1.
+            -- If Last = First or Last = First + 1 then Middle := First
+            -- which will only happen if it's the first time through the
+            -- loop and then will be caught below.
+            First := Middle;
+         end if;
+         if First = Last then
+            return Option_Winner_Type'(False, 0);
+         end if;
+         if First + 1 = Last then
+            if Game_Book (First).start_cb <= b
+              and then Game_Book (First).end_cb >= b
+            then
+               return Option_Winner_Type'(True, Game_Book (First).winner);
+            elsif Game_Book (Last).start_cb <= b
+              and then Game_Book (Last).end_cb >= b
+            then
+               return Option_Winner_Type'(True, Game_Book (Last).winner);
+            else
+               return Option_Winner_Type'(False, 0);
+            end if;
+         end if;
+      end loop;
    end Get_Score;
-
-   function Get_Move (b : Compressed_Board) return Move_Score_Type is
-   begin
-      return Game_Book.Element (b);
-   end Get_Move;
 
    procedure Missing_Move_Insert (b : Compressed_Board) is
    begin
@@ -152,94 +143,43 @@ package body Move_Book is
    end Missing_Move_Insert;
 
    function To_Move_Table_Line
-     (cb : Compressed_Board; sms : Move_Score_Type; terse : Boolean := False)
+     (cb : Compressed_Board; score : Winner_Type; terse : Boolean := False)
       return String is
    begin
       return
         (cb'Image
-         & (if sms.score = -1
+         & (if score = -1
             then " 1 "
-            elsif sms.score = 1
+            elsif score = 1
             then " 2 "
-            elsif sms.score = 0
+            elsif score = 0
             then " 0 "
             else "xxx")
-         & Move_Type'Image (sms.move)
-         & (if terse then "" else (" " & To_String (Decompress (cb)))));
+         & (if terse then "" else " " & To_String (Decompress (cb))));
    end To_Move_Table_Line;
 
    procedure Add_Move (b : Game_State_Type; depth : Natural) is
       cb  : constant Compressed_Board := Compress (b);
-      sms : Move_Score_Type;
+      sms : Exact_AB.Move_Score_Type;
    begin
-      if Move_Book.Is_Book_Move (cb) then
+      if Get_Score (cb).Found then
          return;
       end if;
 
       sms := Exact_AB.Best_Move (b, depth);
       if sms.exact then
-         Ada.Text_IO.Put_Line (Update_File, To_Move_Table_Line (cb, sms));
-         Game_Book.Insert (cb, sms);
-         Ada.Text_IO.Put_Line
-           ("*** Solved "
-            & sms.Score'Image
-            & " -- "
-            & cb'Image
-            & " "
-            & To_String (b));
+         declare
+            mtl : constant String := To_Move_Table_Line (cb, sms.Score, false);
+         begin
+            Ada.Text_IO.Put_Line (Update_File, mtl);
+            Ada.Text_IO.Put_Line (mtl);
+         end;
       else
          Missing_Move_Insert (cb);
+         --Ada.Text_IO.Put_Line
+         --  (cb'Image & " Failed " & To_String (Decompress (cb)));
       end if;
    end Add_Move;
-
-   package Board_Container is new
-     Ada.Containers.Vectors (Natural, Unbounded_String);
-
-   procedure Dump_Move_Book_Local
-     (f           : Ada.Text_IO.File_Type;
-      board_list : in out Board_Container.Vector; -- So it can be sorted without copying it
-      cat_title   : String)
-   is
-      package A_Sorter is new Board_Container.Generic_Sorting;
-   begin
-      Ada.Text_IO.Put_Line (f, "");
-      Ada.Text_IO.Put_Line (f, "== " & cat_title & " ==");
-
-      A_Sorter.Sort (board_list);
-      for line of board_list loop
-         Ada.Text_IO.Unbounded_IO.Put_Line (f, line);
-      end loop;
-   end Dump_Move_Book_Local;
-
-   procedure Dump_Move_Book (f : Ada.Text_IO.File_Type) is
-   begin
-      for cat in Board_Categories_Type'Range loop
-         declare
-            Per_Size_Maps : Board_Container.Vector;
-         begin
-            for b_sms in Game_Book.Iterate loop
-               declare
-                  cb       : constant Compressed_Board :=
-                    Move_Hash_Map.Key (b_sms);
-                  category : constant Board_Categories_Type :=
-                    Categorize (Decompress (cb));
-                  sms      : constant Move_Score_Type :=
-                    Move_Hash_Map.Element (b_sms);
-               begin
-                  if category = cat then
-                     Per_Size_Maps.Append
-                       (To_Unbounded_String
-                          (To_Move_Table_Line (cb, sms, True)));
-                  end if;
-               end;
-            end loop;
-            if not Per_Size_Maps.Is_Empty then
-               Dump_Move_Book_Local (f, Per_Size_Maps, Title_Line (cat));
-            end if;
-         end;
-      end loop;
-
-   end Dump_Move_Book;
 
    procedure Close is
    begin

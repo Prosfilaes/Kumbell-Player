@@ -1,6 +1,4 @@
-with Ada; use Ada;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with Ada.Containers;        use Ada.Containers;
 
 package body Kalah_Board is
    Total_Piece_Number : constant Piece_Count := Piece_Count'Last;
@@ -11,7 +9,7 @@ package body Kalah_Board is
       new_board : Game_State_Type;
    begin
       new_board.board.board :=
-        Board_Board_Type'(3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3);
+        Board_Board_Type'(others => Piece_Count (pieces_per_pod));
       new_board.board.store := Board_Store_Type'(0, 0);
       new_board.curr_player := 1;
       return new_board;
@@ -22,9 +20,9 @@ package body Kalah_Board is
    begin
       if b.board.board (Board_Spot (m)) = 0 then
          return false;
-      elsif b.curr_player = 1 and then m > 6 then
+      elsif b.curr_player = 1 and then m > Move_Type (board_length) then
          return false;
-      elsif b.curr_player = 2 and then m < 7 then
+      elsif b.curr_player = 2 and then m <= Move_Type (board_length) then
          return false;
       else
          return true;
@@ -55,8 +53,8 @@ package body Kalah_Board is
 
                end if;
             end if;
-            new_spot := 12;
-         elsif new_spot = 7 then
+            new_spot := Board_Spot (board_length) * 2;
+         elsif new_spot = Board_Spot (board_length + 1) then
             if new_b.curr_player = 2 then
                new_b.board.store (2) := @ + 1;
                loop_count := @ + 1;
@@ -73,12 +71,13 @@ package body Kalah_Board is
          loop_count := @ + 1;
       end loop;
 
-      if ((new_b.curr_player = 1 and new_spot < 7)
-          or (new_b.curr_player = 2 and new_spot > 6))
+      if ((new_b.curr_player = 1 and new_spot <= Board_Spot (board_length))
+          or (new_b.curr_player = 2 and new_spot > Board_Spot (board_length)))
         and new_b.board.board (new_spot) = 1
       then
          declare
-            other_spot : constant Board_Spot := 13 - new_spot;
+            other_spot : constant Board_Spot :=
+              (Board_Spot (board_length) * 2 + 1) - new_spot;
          begin
             new_b.board.store (1) := @ + new_b.board.board (other_spot);
             new_b.board.board (other_spot) := 0;
@@ -89,29 +88,28 @@ package body Kalah_Board is
    end Move;
 
    function Game_Over (b : Game_State_Type) return Boolean is
-      p : Piece_Count;
    begin
-      if b.board.store (1) >= 19 or else b.board.store (2) >= 19 then
+      if b.board.store (1) > Total_Piece_Number / 2
+        or else b.board.store (2) > Total_Piece_Number / 2
+      then
          return true;
       end if;
       if b.curr_player = 1 then
-         p :=
-           b.board.board (1)
-           + b.board.board (2)
-           + b.board.board (3)
-           + b.board.board (4)
-           + b.board.board (5)
-           + b.board.board (6);
-         return p = 0;
+         for i in 1 .. Board_Spot (board_length) loop
+            if b.board.board (i) /= 0 then
+               return False;
+            end if;
+         end loop;
+         return True;
       else
-         p :=
-           b.board.board (7)
-           + b.board.board (8)
-           + b.board.board (9)
-           + b.board.board (10)
-           + b.board.board (11)
-           + b.board.board (12);
-         return p = 0;
+         for i
+           in Board_Spot (1 + board_length) .. Board_Spot (board_length * 2)
+         loop
+            if b.board.board (i) /= 0 then
+               return False;
+            end if;
+         end loop;
+         return True;
       end if;
    end Game_Over;
 
@@ -132,11 +130,13 @@ package body Kalah_Board is
          return 0;
       end if;
       if b.curr_player = 1 then
-         for i in Board_Spot'(7) .. 12 loop
+         for i
+           in Board_Spot (board_length + 1) .. Board_Spot (board_length * 2)
+         loop
             player2 := @ + b.board.board (i);
          end loop;
       else
-         for i in Board_Spot'(1) .. 6 loop
+         for i in 1 .. Board_Spot (board_length) loop
             player1 := @ + b.board.board (i);
          end loop;
       end if;
@@ -154,7 +154,7 @@ package body Kalah_Board is
       Legal_Moves : array (Move_Type) of Boolean := [others => False];
       Count       : Integer := 0;
    begin
-      for i in Move_Type'(1) .. 12 loop
+      for i in Move_Type'(1) .. Move_Type (board_length * 2) loop
          if Is_Legal_Move (b, i) then
             Legal_Moves (i) := True;
             Count := Count + 1;
@@ -187,8 +187,8 @@ package body Kalah_Board is
         (s,
          "P1:" & b.board.store (1)'Image & " P2:" & b.board.store (2)'Image);
       Append (s, " Curr:" & b.curr_player'Image);
-      for i in Board_Spot'(1) .. 12 loop
-         if i = 1 or else i = 7 then
+      for i in Board_Spot'(1) .. Board_Spot (board_length * 2) loop
+         if i = 1 or else i = Board_Spot (board_length + 1) then
             Append (s, " | ");
          end if;
          Append (s, b.board.board (i)'Image & " ");
@@ -199,7 +199,7 @@ package body Kalah_Board is
    function Board_Sum (b : Game_State_Type) return Integer is
       sum : Integer := 0;
    begin
-      for i in Board_Spot'(1) .. 12 loop
+      for i in Board_Spot'(1) .. Board_Spot (board_length * 2) loop
          sum := @ + Integer (b.board.board (i));
       end loop;
       sum := @ + Integer (b.board.store (1)) + Integer (b.board.store (2));
@@ -208,7 +208,7 @@ package body Kalah_Board is
 
    function Is_Legal_Board (b : Game_State_Type) return Boolean is
    begin
-      return Piece_Count(Board_Sum (b)) = Total_Piece_Number;
+      return Piece_Count (Board_Sum (b)) = Total_Piece_Number;
    end Is_Legal_Board;
 
    function Move_Type_from_String (s : String) return Move_Type is
@@ -225,18 +225,20 @@ package body Kalah_Board is
    -- Fill Pascal’s triangle
    procedure Init_Binom is
    begin
-   for n in Index loop
-      Binom_Table(n, 0) := 1;
-      Binom_Table(n, n) := 1;
-   end loop;
+      for n in Index loop
+         Binom_Table (n, 0) := 1;
+         Binom_Table (n, n) := 1;
+      end loop;
 
-   for n in Index loop
-      if n >= 2 then  -- minimum where k = 1 .. n-1 is valid
-         for k in 1 .. n - 1 loop
-            Binom_Table(n, k) := Binom_Table(n - 1, k - 1) + Binom_Table(n - 1, k);
-         end loop;
-      end if;
-    end loop;
+      for n in Index loop
+         if n >= 2 then
+            -- minimum where k = 1 .. n-1 is valid
+            for k in 1 .. n - 1 loop
+               Binom_Table (n, k) :=
+                 Binom_Table (n - 1, k - 1) + Binom_Table (n - 1, k);
+            end loop;
+         end if;
+      end loop;
    end Init_Binom;
 
    Initialized : Boolean := False;
@@ -251,16 +253,15 @@ package body Kalah_Board is
       if K > N then
          return 0;
       else
-         return Binom_Table(N, K);
+         return Binom_Table (N, K);
       end if;
    end Binomial;
 
-
    function Compress (b : Game_State_Type) return Compressed_Board is
       Rank_Value : Compressed_Board := 0;
-      Total      : Natural := 36;
-      Holes_Left : Natural := 14;
-      Config     : array (1 .. 14) of Piece_Count;
+      Total      : Natural := pieces_per_pod * 2 * board_length;
+      Holes_Left : Natural := 2 * board_length + 2;
+      Config     : array (1 .. 2 * board_length + 2) of Piece_Count;
    begin
       if b.curr_player = 2 then
          raise Constraint_Error
@@ -268,7 +269,7 @@ package body Kalah_Board is
       end if;
       Config (1) := b.board.store (1);
       Config (2) := b.board.store (2);
-      for i in 1 .. 12 loop
+      for i in 1 .. 2 * board_length loop
          Config (i + 2) := b.board.board (Board_Spot (i));
       end loop;
       for I in 1 .. 13 loop
@@ -284,15 +285,16 @@ package body Kalah_Board is
    end Compress;
 
    function Decompress (cb : Compressed_Board) return Game_State_Type is
-      Total      : Natural := 36;
-      Holes_Left : Natural := 14;
-      Config     : array (1 .. 14) of Piece_Count;
+      Num_Holes  : constant Natural := 2 + 2 * board_length;
+      Total      : Natural := pieces_per_pod * 2 * board_length;
+      Holes_Left : Natural := Num_Holes;
+      Config     : array (1 .. Num_Holes) of Piece_Count;
       Count      : Natural;
       Comb       : Compressed_Board;
       Rank_Value : Compressed_Board := cb;
       B          : Game_State_Type;
    begin
-      for I in 1 .. 13 loop
+      for I in 1 .. Num_Holes - 1 loop
          Count := 0;
          loop
             Comb :=
@@ -305,11 +307,11 @@ package body Kalah_Board is
          Total := Total - Count;
          Holes_Left := Holes_Left - 1;
       end loop;
-      Config (14) := Piece_Count (Total);
+      Config (Num_Holes) := Piece_Count (Total);
       B.curr_player := 1;
       B.board.store (1) := Config (1);
       B.board.store (2) := Config (2);
-      for i in 1 .. 12 loop
+      for i in 1 .. board_length * 2 loop
          B.board.board (Board_Spot (i)) := Config (i + 2);
       end loop;
       return B;
@@ -327,42 +329,10 @@ package body Kalah_Board is
       return bc'Image & " pieces on the board";
    end Title_Line;
 
-   function Player1_Board_Pieces (b : Game_State_Type) return Piece_Count is
-   begin
-      return
-        b.board.board (1)
-        + b.board.board (2)
-        + b.board.board (3)
-        + b.board.board (4)
-        + b.board.board (5)
-        + b.board.board (6);
-   end Player1_Board_Pieces;
-
-   function Player2_Board_Pieces (b : Game_State_Type) return Piece_Count is
-   begin
-      return
-        b.board.board (7)
-        + b.board.board (8)
-        + b.board.board (9)
-        + b.board.board (10)
-        + b.board.board (11)
-        + b.board.board (12);
-   end Player2_Board_Pieces;
-
    function To_String (m : Move_Type) return String is
    begin
       return m'Image;
    end To_String;
-
-   --function Hash (b : Game_State_Type) return Ada.Containers.Hash_Type is
-   --   ht : Ada.Containers.Hash_Type;
-   --begin
-   --   ht := Ada.Containers.Hash_Type (b.board.store (1));
-   --   for i in Board_Spot'(1) .. 12 loop
-   --      ht := 3 * @ + Ada.Containers.Hash_Type (b.board.board (i));
-   --   end loop;
-   --   return ht;
-   --end Hash;
 
    function Base_Boards return Board_Vectors.Vector is
       ml : Board_Vectors.Vector;
@@ -379,7 +349,7 @@ package body Kalah_Board is
             end if;
          else
             new_b := b;
-            for i in Board_Spot'(min_spot) .. 12 loop
+            for i in min_spot .. Board_Spot (board_length * 2) loop
                new_b.board.board (i) := @ + 1;
                Add_Chunk_Rec (new_b, depth - 1, i);
                new_b.board.board (i) := @ - 1;
@@ -391,14 +361,14 @@ package body Kalah_Board is
         (player1_score : Piece_Count; player2_score : Piece_Count)
       is
          depth : constant Integer :=
-           Integer(Total_Piece_Number)
+           Integer (Total_Piece_Number)
            - (Integer (player1_score) + Integer (player2_score));
          b     : Game_State_Type;
       begin
          b.curr_player := 1;
          b.board.store (1) := player1_score;
          b.board.store (2) := player2_score;
-         for i in Board_Spot'(1) .. 12 loop
+         for i in 1 .. Board_Spot (board_length * 2) loop
             b.board.board (i) := 0;
          end loop;
          Add_Chunk_Rec (b, depth, 1);
@@ -407,19 +377,15 @@ package body Kalah_Board is
    begin
       -- List all boards with up to 16 pieces on the board
       for i in Piece_Count'(1) .. 16 loop
-         for j in Piece_Count'(18) - i .. 18 loop
-            Add_Chunk (36 - i - j, j);
+         for j
+           in Piece_Count'(Total_Piece_Number / 2)
+              - i
+              .. Total_Piece_Number / 2
+         loop
+            Add_Chunk (Total_Piece_Number - i - j, j);
          end loop;
       end loop;
       return ml;
    end Base_Boards;
-
-   -- Fallback
-   --function Hash (b : Game_State_Type) return Ada.Containers.Hash_Type is
-   --   type Board_Bytes is mod 2**64;
-   --   cb : constant Board_Bytes := Board_Bytes (Compress (b));
-   --begin
-   --   return Ada.Containers.Hash_Type (cb mod 2**32 xor (cb / 2**32));
-   --end Hash;
 
 end Kalah_Board;
