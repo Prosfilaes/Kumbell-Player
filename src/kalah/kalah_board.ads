@@ -49,8 +49,9 @@ package Kalah_Board is
    with
      Pre =>
        ((board_length <= 6 and then pieces_per_pod <= 12)
-        or (board <= 8 and then pieces_per_pod <= 5))
+        or (board_length <= 8 and then pieces_per_pod <= 5))
        and then Is_Legal_Board (b);
+       
    function Decompress (cb : Compressed_Board) return Game_State_Type
    with Post => Is_Legal_Board (Decompress'Result);
 

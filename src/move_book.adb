@@ -160,16 +160,16 @@ package body Move_Book is
 
    procedure Add_Move (b : Game_State_Type; depth : Natural) is
       cb  : constant Compressed_Board := Compress (b);
-      sms : Exact_AB.Move_Score_Type;
+      wt : Option_Winner_Type;
    begin
       if Get_Score (cb).Found then
          return;
       end if;
 
-      sms := Exact_AB.Best_Move (b, depth);
-      if sms.exact then
+      wt := Exact_AB.Player_Search (b, depth);
+      if wt.Found then
          declare
-            mtl : constant String := To_Move_Table_Line (cb, sms.Score, false);
+            mtl : constant String := To_Move_Table_Line (cb, wt.Winner, false);
          begin
             Ada.Text_IO.Put_Line (Update_File, mtl);
             Ada.Text_IO.Put_Line (mtl);

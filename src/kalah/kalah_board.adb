@@ -263,10 +263,6 @@ package body Kalah_Board is
       Holes_Left : Natural := 2 * board_length + 2;
       Config     : array (1 .. 2 * board_length + 2) of Piece_Count;
    begin
-      if b.curr_player = 2 then
-         raise Constraint_Error
-           with "Compress: Player 2 is not allowed to compress";
-      end if;
       Config (1) := b.board.store (1);
       Config (2) := b.board.store (2);
       for i in 1 .. 2 * board_length loop
@@ -281,6 +277,7 @@ package body Kalah_Board is
          end loop;
          Total := Total - Integer (Config (I));
       end loop;
+      Rank_Value := @ * 2 + (if b.curr_player = 2 then 1 else 0);
       return Rank_Value;
    end Compress;
 
@@ -294,6 +291,12 @@ package body Kalah_Board is
       Rank_Value : Compressed_Board := cb;
       B          : Game_State_Type;
    begin
+      if Rank_Value mod 2 = 0 then
+         B.curr_player := 1;
+      else
+         B.curr_player := 2;
+      end if;
+      Rank_Value := @ / 2;
       for I in 1 .. Num_Holes - 1 loop
          Count := 0;
          loop
@@ -308,7 +311,6 @@ package body Kalah_Board is
          Holes_Left := Holes_Left - 1;
       end loop;
       Config (Num_Holes) := Piece_Count (Total);
-      B.curr_player := 1;
       B.board.store (1) := Config (1);
       B.board.store (2) := Config (2);
       for i in 1 .. board_length * 2 loop
