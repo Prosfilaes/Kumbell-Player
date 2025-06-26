@@ -1,0 +1,4 @@
+This is code to build movebooks for abstract games of two players.
+So far we've established that Kalah played on a board with six pits
+per players starting with 2 or 3 beads in each pit is a first-player
+win. Standard is four.
