@@ -1,5 +1,6 @@
 with Ada.Containers; use Ada.Containers;
 with Ada.Containers.Vectors;
+with Ada.Text_IO;
 with Exact_AB;
 
 package body Move_Book is
@@ -137,10 +138,34 @@ package body Move_Book is
       end loop;
    end Get_Score;
 
+   Max_Heap_Size     : Natural := 50_000_000;
+   Max_Heap_Count    : Natural := 0;
+   Missing_Move_Heap : Move_Heap_P.Max_Heap_Type;
+
+   procedure Set_Max_Heap_Size (size : in Natural) is
+   begin
+      Max_Heap_Size := size;
+   end Set_Max_Heap_Size;
+
+   function Get_Missing_Move_Heap return Move_Heap_P.Max_Heap_Type is
+   begin
+      return Missing_Move_Heap;
+   end Get_Missing_Move_Heap;
+
    procedure Missing_Move_Insert (b : Compressed_Board) is
    begin
-      Ada.Text_IO.Put_Line (Out_Work_File, b'Image);
+      Max_Heap_Count := @ + 1;
+      Move_Heap_P.Insert (Missing_Move_Heap, b);
+      if Max_Heap_Count mod 100_000 = 0 then
+         Move_Heap_P.Compact (Missing_Move_Heap, Max_Heap_Size);
+      end if;
    end Missing_Move_Insert;
+
+   procedure Reset_Missing_Move_Heap is
+      new_heap: Move_Heap_P.Max_Heap_Type;
+   begin
+      Missing_Move_Heap := new_heap;
+   end Reset_Missing_Move_Heap;
 
    function To_Move_Table_Line
      (cb : Compressed_Board; score : Winner_Type; terse : Boolean := False)
@@ -159,7 +184,7 @@ package body Move_Book is
    end To_Move_Table_Line;
 
    procedure Add_Move (b : Game_State_Type; depth : Natural) is
-      cb  : constant Compressed_Board := Compress (b);
+      cb : constant Compressed_Board := Compress (b);
       wt : Option_Winner_Type;
    begin
       if Get_Score (cb).Found then
