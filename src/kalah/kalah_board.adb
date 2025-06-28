@@ -1,4 +1,5 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with Ada.Text_IO;
 
 package body Kalah_Board is
    Total_Piece_Number : constant Piece_Count := Piece_Count'Last;
@@ -216,7 +217,7 @@ package body Kalah_Board is
       return Move_Type'Value (s);
    end Move_Type_from_String;
 
-   subtype Index is Natural range 0 .. 100;
+   subtype Index is Natural range 0 .. 60;
    type Binom_Table_Type is array (Index, Index) of Compressed_Board;
 
    -- Precomputed table of Binomial coefficients
@@ -268,7 +269,7 @@ package body Kalah_Board is
       for i in 1 .. 2 * board_length loop
          Config (i + 2) := b.board.board (Board_Spot (i));
       end loop;
-      for I in 1 .. 13 loop
+      for I in Config'First .. Config'Last - 1 loop
          Holes_Left := Holes_Left - 1;
          for X in 0 .. Integer (Config (I)) - 1 loop
             Rank_Value :=

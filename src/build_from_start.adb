@@ -7,11 +7,9 @@ with Ada.Command_Line;
 
 procedure Build_From_Start is
    cb             : Board.Compressed_Board;
-   in_work_file  : Ada.Text_IO.File_Type;
    depth : constant := 1;
    curr_moves : Move_Heap_P.Max_Heap_Type;
    cycle_count : Natural := 0;
-   package CB_IO is new Ada.Text_IO.Integer_IO (Board.Compressed_Board);
 begin
    if Ada.Command_Line.Argument_Count /= 2 then
       Ada.Text_IO.Put_Line
@@ -27,6 +25,7 @@ begin
    Move_Book.Add_Move (Board.Initialize, depth);
    curr_moves := Move_Book.Get_Missing_Move_Heap;
    Move_Book.Reset_Missing_Move_Heap;
+   Move_Book.Set_Max_Heap_Size (30_000_000);
    while (curr_moves.Size > 0) loop
       cycle_count := @ + 1;
       Ada.Text_IO.Put_Line ("** Cycle " & cycle_count'Image & " working on " & curr_moves.size'Image & " items.**");
@@ -34,6 +33,9 @@ begin
          Move_Heap_P.Pop_Max (curr_moves, cb);
          Move_Book.Add_Move (Decompress(cb), depth);
       end loop;
+      if cycle_count > 150 then
+         exit;
+      end if;
       curr_moves := Move_Book.Get_Missing_Move_Heap;
       Move_Book.Reset_Missing_Move_Heap;
    end loop;

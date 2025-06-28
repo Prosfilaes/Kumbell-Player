@@ -168,7 +168,7 @@ package body Uniq_Max_Heap is
       Vect_Sort.Sort (Underlying_Vector.Vector(heap));
       curr_value := heap.Last_Element;      
       new_heap.append (curr_value);
-      for i in reverse 1 .. len - 2 loop
+      for i in reverse 0 .. len - 1 loop
          if curr_value /= Element(heap, i) then
             curr_value := Element(heap, i);
             new_heap.Append (curr_value);

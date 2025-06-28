@@ -1,9 +1,38 @@
 with Ada.Containers; use Ada.Containers;
 with Ada.Containers.Vectors;
+with Ada.Containers.Hashed_Maps;
 with Ada.Text_IO;
 with Exact_AB;
+with Interfaces; use Interfaces;
 
 package body Move_Book is
+
+   function Is_Equal (a, b : Compressed_Board) return Boolean with Inline is
+   begin
+      return a = b;
+   end Is_Equal;
+
+   function SplitMix64_Hash
+     (X : Compressed_Board) return Ada.Containers.Hash_Type
+   is
+      Y : Interfaces.Unsigned_64 := Interfaces.Unsigned_64 (X);
+   begin
+      Y := Y xor (Y / 2**30);
+      Y := Y * 16#BF58476D1CE4E5B9#;
+      Y := Y xor (Y / 2**27);
+      Y := Y * 16#94D049BB133111EB#;
+      Y := Y xor (Y / 2**31);
+      return Ada.Containers.Hash_Type (Y / 2**32);  -- Top 32 bits
+   end SplitMix64_Hash;
+
+   package Move_Hash_Map is new
+     Ada.Containers.Hashed_Maps
+       (Key_Type        => Compressed_Board,
+        Element_Type    => Winner_Type,
+        Hash            => SplitMix64_Hash,
+        Equivalent_Keys => Is_Equal);
+
+   Game_Book_Map : Move_Hash_Map.Map;
 
    type Move_Book_Record is record
       start_cb : Compressed_Board;
@@ -99,6 +128,9 @@ package body Move_Book is
       Last   : Natural := Natural (Game_Book.Length);
       Middle : Natural;
    begin
+      if Game_Book_Map.Contains (b) then
+         return Option_Winner_Type'(True, Game_Book_Map.Element (b));
+      end if;
       if Last = 0 then
          return Option_Winner_Type'(False, 0);
       end if;
@@ -149,6 +181,7 @@ package body Move_Book is
 
    function Get_Missing_Move_Heap return Move_Heap_P.Max_Heap_Type is
    begin
+      Missing_Move_Heap.Compact (Max_Heap_Size);
       return Missing_Move_Heap;
    end Get_Missing_Move_Heap;
 
@@ -156,7 +189,7 @@ package body Move_Book is
    begin
       Max_Heap_Count := @ + 1;
       Move_Heap_P.Insert (Missing_Move_Heap, b);
-      if Max_Heap_Count mod 100_000 = 0 then
+      if Max_Heap_Count mod (Max_Heap_Size / 4) = 0 then
          Move_Heap_P.Compact (Missing_Move_Heap, Max_Heap_Size);
       end if;
    end Missing_Move_Insert;
@@ -197,12 +230,13 @@ package body Move_Book is
             mtl : constant String := To_Move_Table_Line (cb, wt.Winner, false);
          begin
             Ada.Text_IO.Put_Line (Update_File, mtl);
-            Ada.Text_IO.Put_Line (mtl);
+            --Ada.Text_IO.Put_Line (mtl);
+            Game_Book_Map.Insert (cb, wt.Winner);
          end;
       else
          Missing_Move_Insert (cb);
          --Ada.Text_IO.Put_Line
-         --  (cb'Image & " Failed " & To_String (Decompress (cb)));
+         --    (cb'Image & " Failed " & To_String (Decompress (cb)));
       end if;
    end Add_Move;
 
