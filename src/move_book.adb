@@ -124,8 +124,8 @@ package body Move_Book is
    end Load_Book;
 
    function Get_Score (b : Compressed_Board) return Option_Winner_Type is
-      First  : Natural := 1;
-      Last   : Natural := Natural (Game_Book.Length);
+      First  : Natural := 0;
+      Last   : Natural := Natural (Game_Book.Length) - 1;
       Middle : Natural;
    begin
       if Game_Book_Map.Contains (b) then
@@ -171,7 +171,7 @@ package body Move_Book is
    end Get_Score;
 
    Max_Heap_Size     : Natural := 50_000_000;
-   Max_Heap_Count    : Natural := 0;
+   Max_Heap_Count    : Unsigned_64 := 0;
    Missing_Move_Heap : Move_Heap_P.Max_Heap_Type;
 
    procedure Set_Max_Heap_Size (size : in Natural) is
@@ -189,7 +189,7 @@ package body Move_Book is
    begin
       Max_Heap_Count := @ + 1;
       Move_Heap_P.Insert (Missing_Move_Heap, b);
-      if Max_Heap_Count mod (Max_Heap_Size / 4) = 0 then
+      if Max_Heap_Count mod Unsigned_64(Max_Heap_Size / 4) = 0 then
          Move_Heap_P.Compact (Missing_Move_Heap, Max_Heap_Size);
       end if;
    end Missing_Move_Insert;
@@ -198,6 +198,7 @@ package body Move_Book is
       new_heap: Move_Heap_P.Max_Heap_Type;
    begin
       Missing_Move_Heap := new_heap;
+      Max_Heap_Count := 0;
    end Reset_Missing_Move_Heap;
 
    function To_Move_Table_Line
