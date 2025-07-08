@@ -20,7 +20,7 @@ package Move_Book is
    procedure Missing_Move_Insert (b : Compressed_Board);
    procedure Close;
 
-   package Move_Heap_P is new Uniq_Max_Heap(Compressed_Board);
+   package Move_Heap_P is new Uniq_Max_Heap (Compressed_Board);
    function Get_Missing_Move_Heap return Move_Heap_P.Max_Heap_Type;
    procedure Reset_Missing_Move_Heap;
    procedure Set_Max_Heap_Size (size : Natural);

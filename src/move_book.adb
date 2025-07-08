@@ -3,7 +3,7 @@ with Ada.Containers.Hashed_Maps;
 with Ada.Text_IO;
 with Exact_AB;
 with Interfaces;     use Interfaces;
-with Interfaces.C; use Interfaces.C;
+with Interfaces.C;   use Interfaces.C;
 with Mmap;
 
 package body Move_Book is
@@ -90,7 +90,9 @@ package body Move_Book is
          Middle := First + (Last - First) / 2;
          -- Loop invariant: First <= Middle <= Last
          Data := Mmap.Get (Middle);
-         if Compressed_Board (Data.start_idx) <= b and then Compressed_Board(Data.end_idx) >= b then
+         if Compressed_Board (Data.start_idx) <= b
+           and then Compressed_Board (Data.end_idx) >= b
+         then
             return Option_Winner_Type'(True, To_Winner (Data.Value));
          elsif Compressed_Board (Data.start_idx) > b then
             -- Last can't equal Middle, since / rounds down or towards zero
@@ -111,13 +113,15 @@ package body Move_Book is
                Last_Data  : constant Mmap.Mmap_Record := Mmap.Get (Last);
             begin
                if Compressed_Board (First_Data.start_idx) <= b
-                 and then Compressed_Board(First_Data.end_idx) >= b
+                 and then Compressed_Board (First_Data.end_idx) >= b
                then
-                  return Option_Winner_Type'(True, To_Winner (First_Data.Value));
-               elsif Compressed_Board(Last_Data.start_idx) <= b
-                 and then Compressed_Board(Last_Data.end_idx) >= b
+                  return
+                    Option_Winner_Type'(True, To_Winner (First_Data.Value));
+               elsif Compressed_Board (Last_Data.start_idx) <= b
+                 and then Compressed_Board (Last_Data.end_idx) >= b
                then
-                  return Option_Winner_Type'(True, To_Winner (Last_Data.Value));
+                  return
+                    Option_Winner_Type'(True, To_Winner (Last_Data.Value));
                else
                   return Option_Winner_Type'(False, 0);
                end if;

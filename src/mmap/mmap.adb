@@ -1,6 +1,4 @@
-with Interfaces.C;
 with Interfaces.C.Strings;
-with System;
 
 package body Mmap is
 
@@ -23,7 +21,7 @@ package body Mmap is
 
    procedure Open (Filename : String) is
       C_Filename : chars_ptr := New_String (Filename);
-      Err : c.int := mmap_open (C_Filename);
+      Err : constant c.int := mmap_open (C_Filename);
       Mmap_Error : exception;
    begin
       Free (C_Filename);
