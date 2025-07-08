@@ -125,17 +125,19 @@ package body Move_Book is
 
    function Get_Score (b : Compressed_Board) return Option_Winner_Type is
       First  : Natural := 0;
-      Last   : Natural := Natural (Game_Book.Length) - 1;
+      Last   : Natural := Natural (Game_Book.Length);
       Middle : Natural;
    begin
       if Game_Book_Map.Contains (b) then
          return Option_Winner_Type'(True, Game_Book_Map.Element (b));
       end if;
-      if Last = 0 then
+      if Last = 0 then -- if Game_Book is empty
          return Option_Winner_Type'(False, 0);
+      else
+         Last := @ - 1;
       end if;
       loop
-         Middle := (First + Last) / 2;
+         Middle := First + (Last - First) / 2;
          -- Loop invariant: First <= Middle <= Last
          if Game_Book (Middle).start_cb <= b
            and then Game_Book (Middle).end_cb >= b
@@ -217,7 +219,7 @@ package body Move_Book is
          & (if terse then "" else " " & To_String (Decompress (cb))));
    end To_Move_Table_Line;
 
-   procedure Add_Move (b : Game_State_Type; depth : Natural) is
+   procedure Add_Move (b : Game_State_Type) is
       cb : constant Compressed_Board := Compress (b);
       wt : Option_Winner_Type;
    begin
@@ -225,10 +227,10 @@ package body Move_Book is
          return;
       end if;
 
-      wt := Exact_AB.Player_Search (b, depth);
+      wt := Exact_AB.Player_Search (b, 1);
       if wt.Found then
          declare
-            mtl : constant String := To_Move_Table_Line (cb, wt.Winner, false);
+            mtl : constant String := To_Move_Table_Line (cb, wt.Winner, true);
          begin
             Ada.Text_IO.Put_Line (Update_File, mtl);
             --Ada.Text_IO.Put_Line (mtl);

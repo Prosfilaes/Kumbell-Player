@@ -15,7 +15,7 @@ package Move_Book is
       outworkfilename : String := "");
    function Get_Score (b : Compressed_Board) return Option_Winner_Type
    with Inline;
-   procedure Add_Move (b : Game_State_Type; depth : Natural)
+   procedure Add_Move (b : Game_State_Type)
    with Pre => Is_Legal_Board (b) and then not Game_Over (b);
    procedure Missing_Move_Insert (b : Compressed_Board);
    procedure Close;

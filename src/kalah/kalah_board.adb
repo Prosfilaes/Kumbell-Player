@@ -1,5 +1,4 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with Ada.Text_IO;
 
 package body Kalah_Board is
    Total_Piece_Number : constant Piece_Count := Piece_Count'Last;
@@ -114,7 +113,7 @@ package body Kalah_Board is
       end if;
    end Game_Over;
 
-   function Winner (b : Game_State_Type) return Winner_Type is
+   function Normal_Winner (b : Game_State_Type) return Winner_Type is
       --            with Pre => Game_Over (b);
       player1 : Piece_Count := b.board.store (1);
       player2 : Piece_Count := b.board.store (2);
@@ -148,6 +147,16 @@ package body Kalah_Board is
          return 1;
       else
          return 0;
+      end if;
+   end Normal_Winner;
+
+   function Winner (b : Game_State_Type) return Winner_Type is
+      normal : constant Winner_Type := Normal_Winner (b);
+   begin
+      if misere then 
+         return (if normal = 1 then -1 elsif normal = -1 then 1 else normal);
+      else
+         return normal;
       end if;
    end Winner;
 
@@ -337,21 +346,27 @@ package body Kalah_Board is
       return m'Image;
    end To_String;
 
-   function Base_Boards return Board_Vectors.Vector is
-      ml : Board_Vectors.Vector;
+   procedure Base_Boards
+     (num_board_piece : Piece_Count;
+      consumer        : Game_State_Consumer)
+   is
 
       procedure Add_Chunk_Rec
         (b : Game_State_Type; depth : Integer; min_spot : Board_Spot)
       is
-         new_b : Game_State_Type;
+         new_b : Game_State_Type := b;
       begin
          if depth = 0 then
             pragma Assert (Is_Legal_Board (b));
             if not Game_Over (b) then
-               ml.Append (b);
+               consumer (b);
             end if;
+            new_b.curr_player := 2;
+            pragma Assert (Is_Legal_Board (new_b));
+            if not Game_Over (new_b) then
+               consumer (new_b);
+            end if;            
          else
-            new_b := b;
             for i in min_spot .. Board_Spot (board_length * 2) loop
                new_b.board.board (i) := @ + 1;
                Add_Chunk_Rec (new_b, depth - 1, i);
@@ -378,8 +393,8 @@ package body Kalah_Board is
       end Add_Chunk;
 
    begin
-      -- List all boards with up to 16 pieces on the board
-      for i in Piece_Count'(1) .. 16 loop
+      -- List all boards with up to num_board_piece pieces on the board
+      for i in Piece_Count'(1) .. num_board_piece loop
          for j
            in Piece_Count'(Total_Piece_Number / 2)
               - i
@@ -388,7 +403,6 @@ package body Kalah_Board is
             Add_Chunk (Total_Piece_Number - i - j, j);
          end loop;
       end loop;
-      return ml;
    end Base_Boards;
 
 end Kalah_Board;
