@@ -10,7 +10,7 @@ package Move_Book is
    end record;
 
    procedure Load_Book
-     (infilename      : String;
+     (infilename      : String := "";
       outfilename     : String := "";
       outworkfilename : String := "");
    function Get_Score (b : Compressed_Board) return Option_Winner_Type

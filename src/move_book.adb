@@ -1,9 +1,10 @@
 with Ada.Containers; use Ada.Containers;
-with Ada.Containers.Vectors;
 with Ada.Containers.Hashed_Maps;
 with Ada.Text_IO;
 with Exact_AB;
-with Interfaces; use Interfaces;
+with Interfaces;     use Interfaces;
+with Interfaces.C; use Interfaces.C;
+with Mmap;
 
 package body Move_Book is
 
@@ -34,83 +35,21 @@ package body Move_Book is
 
    Game_Book_Map : Move_Hash_Map.Map;
 
-   type Move_Book_Record is record
-      start_cb : Compressed_Board;
-      end_cb   : Compressed_Board;
-      winner   : Winner_Type;
-   end record;
-
-   package Move_Book_List is new
-     Ada.Containers.Vectors (Natural, Move_Book_Record);
-
-   Game_Book : Move_Book_List.Vector;
-
+   In_File_Open       : Boolean := false;
    Update_File        : Ada.Text_IO.File_Type;
    Update_File_Open   : Boolean := false;
    Out_Work_File      : Ada.Text_IO.File_Type;
    Out_Work_File_Open : Boolean := false;
 
    procedure Load_Book
-     (infilename      : String;
+     (infilename      : String := "";
       outfilename     : String := "";
       outworkfilename : String := "") is
    begin
-      declare
-         File : Ada.Text_IO.File_Type;
-      begin
-         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, infilename);
-         while not Ada.Text_IO.End_Of_File (File) loop
-            declare
-               Line         : constant string := Ada.Text_IO.Get_Line (File);
-               mbr          : Move_Book_Record;
-               first_space  : Integer;
-               second_space : Integer;
-               winner_read  : Integer;
-            begin
-               -- Ignore all lines that don't start with a positive number
-               if Line'Length > 10
-                 and then Line (1) >= '1'
-                 and then Line (1) <= '9'
-               then
-                  first_space := 2;
-                  while Line (first_space) >= '0'
-                    and then Line (first_space) <= '9'
-                  loop
-                     first_space := @ + 1;
-                  end loop;
-                  mbr.start_cb :=
-                    Compressed_Board'Value (Line (1 .. first_space - 1));
-                  second_space := first_space + 1;
-                  if Line (first_space) = '-' then
-                     while Line (second_space) >= '0'
-                       and then Line (second_space) <= '9'
-                     loop
-                        second_space := @ + 1;
-                     end loop;
-                     mbr.end_cb :=
-                       Compressed_Board'Value
-                         (Line (first_space + 1 .. second_space - 1));
-                  else
-                     mbr.end_cb := mbr.start_cb;
-                  end if;
-                  winner_read :=
-                    Integer'Value (Line (second_space .. Line'Last));
-                  if winner_read = 0 then
-                     mbr.winner := 0;
-                  elsif winner_read = 1 then
-                     mbr.winner := -1;
-                  elsif winner_read = 2 then
-                     mbr.winner := 1;
-                  else
-                     raise Constraint_Error;
-                  end if;
-                  Game_Book.Append (mbr);
-               end if;
-            end;
-         end loop;
-         Ada.Text_IO.Close (File);
-
-      end;
+      if infilename /= "" then
+         In_File_Open := True;
+         Mmap.Open (infilename);
+      end if;
       if outfilename /= "" then
          Update_File_Open := True;
          Ada.Text_IO.Create (Update_File, Ada.Text_IO.Out_File, outfilename);
@@ -123,30 +62,40 @@ package body Move_Book is
       return;
    end Load_Book;
 
+   function To_Winner (uc : unsigned_char) return Winner_Type with Inline is
+   begin
+      if uc = 0 then
+         return 0;
+      elsif uc = 1 then
+         return -1;
+      elsif uc = 2 then
+         return 1;
+      end if;
+      raise Program_Error;
+   end To_Winner;
+
    function Get_Score (b : Compressed_Board) return Option_Winner_Type is
-      First  : Natural := 0;
-      Last   : Natural := Natural (Game_Book.Length);
-      Middle : Natural;
+      First  : Long_Integer := 0;
+      Last   : Long_Integer := Mmap.Length - 1;
+      Middle : Long_Integer;
+      Data   : Mmap.Mmap_Record;
    begin
       if Game_Book_Map.Contains (b) then
          return Option_Winner_Type'(True, Game_Book_Map.Element (b));
       end if;
-      if Last = 0 then -- if Game_Book is empty
+      if not In_File_Open then
          return Option_Winner_Type'(False, 0);
-      else
-         Last := @ - 1;
       end if;
       loop
          Middle := First + (Last - First) / 2;
          -- Loop invariant: First <= Middle <= Last
-         if Game_Book (Middle).start_cb <= b
-           and then Game_Book (Middle).end_cb >= b
-         then
-            return Option_Winner_Type'(True, Game_Book (Middle).winner);
-         elsif Game_Book (Middle).start_cb > b then
+         Data := Mmap.Get (Middle);
+         if Compressed_Board (Data.start_idx) <= b and then Compressed_Board(Data.end_idx) >= b then
+            return Option_Winner_Type'(True, To_Winner (Data.Value));
+         elsif Compressed_Board (Data.start_idx) > b then
             -- Last can't equal Middle, since / rounds down or towards zero
             Last := Middle;
-         elsif Game_Book (Middle).end_cb < b then
+         elsif Compressed_Board (Data.end_idx) < b then
             -- If Last - First > 1, then Middle >= First + 1.
             -- If Last = First or Last = First + 1 then Middle := First
             -- which will only happen if it's the first time through the
@@ -157,17 +106,22 @@ package body Move_Book is
             return Option_Winner_Type'(False, 0);
          end if;
          if First + 1 = Last then
-            if Game_Book (First).start_cb <= b
-              and then Game_Book (First).end_cb >= b
-            then
-               return Option_Winner_Type'(True, Game_Book (First).winner);
-            elsif Game_Book (Last).start_cb <= b
-              and then Game_Book (Last).end_cb >= b
-            then
-               return Option_Winner_Type'(True, Game_Book (Last).winner);
-            else
-               return Option_Winner_Type'(False, 0);
-            end if;
+            declare
+               First_Data : constant Mmap.Mmap_Record := Mmap.Get (First);
+               Last_Data  : constant Mmap.Mmap_Record := Mmap.Get (Last);
+            begin
+               if Compressed_Board (First_Data.start_idx) <= b
+                 and then Compressed_Board(First_Data.end_idx) >= b
+               then
+                  return Option_Winner_Type'(True, To_Winner (First_Data.Value));
+               elsif Compressed_Board(Last_Data.start_idx) <= b
+                 and then Compressed_Board(Last_Data.end_idx) >= b
+               then
+                  return Option_Winner_Type'(True, To_Winner (Last_Data.Value));
+               else
+                  return Option_Winner_Type'(False, 0);
+               end if;
+            end;
          end if;
       end loop;
    end Get_Score;
@@ -191,13 +145,13 @@ package body Move_Book is
    begin
       Max_Heap_Count := @ + 1;
       Move_Heap_P.Insert (Missing_Move_Heap, b);
-      if Max_Heap_Count mod Unsigned_64(Max_Heap_Size / 4) = 0 then
+      if Max_Heap_Count mod Unsigned_64 (Max_Heap_Size / 4) = 0 then
          Move_Heap_P.Compact (Missing_Move_Heap, Max_Heap_Size);
       end if;
    end Missing_Move_Insert;
 
    procedure Reset_Missing_Move_Heap is
-      new_heap: Move_Heap_P.Max_Heap_Type;
+      new_heap : Move_Heap_P.Max_Heap_Type;
    begin
       Missing_Move_Heap := new_heap;
       Max_Heap_Count := 0;
@@ -230,7 +184,7 @@ package body Move_Book is
       wt := Exact_AB.Player_Search (b, 1);
       if wt.Found then
          declare
-            mtl : constant String := To_Move_Table_Line (cb, wt.Winner, true);
+            mtl : constant String := To_Move_Table_Line (cb, wt.Winner, false);
          begin
             Ada.Text_IO.Put_Line (Update_File, mtl);
             --Ada.Text_IO.Put_Line (mtl);
@@ -245,6 +199,10 @@ package body Move_Book is
 
    procedure Close is
    begin
+      if In_File_Open then
+         Mmap.Close;
+         In_File_Open := false;
+      end if;
       if Update_File_Open then
          Ada.Text_IO.Close (Update_File);
          Update_File_Open := false;

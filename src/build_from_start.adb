@@ -40,7 +40,7 @@ begin
    end if;
    curr_moves := Move_Book.Get_Missing_Move_Heap;
    Move_Book.Reset_Missing_Move_Heap;
-   Move_Book.Set_Max_Heap_Size (100_000_000);
+   Move_Book.Set_Max_Heap_Size (300_000_000);
    while (curr_moves.Size > 0) loop
       cycle_count := @ + 1;
       Put_Line
