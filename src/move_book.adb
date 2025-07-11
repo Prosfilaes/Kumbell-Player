@@ -1,5 +1,6 @@
 with Ada.Containers; use Ada.Containers;
 with Ada.Containers.Hashed_Maps;
+with Ada.Containers.Vectors;
 with Ada.Text_IO;
 with Exact_AB;
 with Interfaces;     use Interfaces;
@@ -41,6 +42,41 @@ package body Move_Book is
    Out_Work_File      : Ada.Text_IO.File_Type;
    Out_Work_File_Open : Boolean := false;
 
+   type In_Memory_Table_Record is record 
+      loc : Long_Integer;
+      extents : Mmap.Mmap_Record;
+   end record;
+
+   package In_Memory_Table_Type is new Ada.Containers.Vectors (Natural, In_Memory_Table_Record);
+   In_Memory_Table : In_Memory_Table_Type.Vector;
+   use In_Memory_Table_Type;
+
+   procedure Build_In_Memory_Table with Pre => In_File_Open is
+      sample : In_Memory_Table_Record;
+      length : constant Long_Integer := Mmap.Length;
+      table_length : constant := 128;
+   begin
+      sample.extents := Mmap.Get (0);
+      sample.loc := 0;
+      Append (In_Memory_Table, sample);
+      for i in 0 .. table_length - 1 loop
+         declare
+            -- table_length * length needs to be in Long_Integer
+            -- length is limited by drive space, so a trillion ~ 2**40
+            -- is about tops now, thus as long as table_length is less
+            -- than 2**24, this should be safe
+            loc : constant Long_Integer := (Long_Integer(i) * length) / table_length;
+         begin
+            sample.extents := Mmap.Get (loc);
+            sample.loc := loc;
+            Append (In_Memory_Table, sample);
+         end;
+      end loop;
+      sample.extents := Mmap.Get (length - 1);
+      sample.loc := length - 1;
+      Append (In_Memory_Table, sample);
+   end Build_In_Memory_Table;
+
    procedure Load_Book
      (infilename      : String := "";
       outfilename     : String := "";
@@ -49,6 +85,7 @@ package body Move_Book is
       if infilename /= "" then
          In_File_Open := True;
          Mmap.Open (infilename);
+         -- Build_In_Memory_Table;
       end if;
       if outfilename /= "" then
          Update_File_Open := True;
@@ -87,6 +124,7 @@ package body Move_Book is
          return Option_Winner_Type'(False, 0);
       end if;
       loop
+         -- / rounds down or towards zero
          Middle := First + (Last - First) / 2;
          -- Loop invariant: First <= Middle <= Last
          Data := Mmap.Get (Middle);
@@ -95,37 +133,16 @@ package body Move_Book is
          then
             return Option_Winner_Type'(True, To_Winner (Data.Value));
          elsif Compressed_Board (Data.start_idx) > b then
-            -- Last can't equal Middle, since / rounds down or towards zero
-            Last := Middle;
+            Last := Middle - 1;
          elsif Compressed_Board (Data.end_idx) < b then
             -- If Last - First > 1, then Middle >= First + 1.
             -- If Last = First or Last = First + 1 then Middle := First
             -- which will only happen if it's the first time through the
             -- loop and then will be caught below.
-            First := Middle;
+            First := Middle + 1;
          end if;
-         if First = Last then
+         if First > Last then
             return Option_Winner_Type'(False, 0);
-         end if;
-         if First + 1 = Last then
-            declare
-               First_Data : constant Mmap.Mmap_Record := Mmap.Get (First);
-               Last_Data  : constant Mmap.Mmap_Record := Mmap.Get (Last);
-            begin
-               if Compressed_Board (First_Data.start_idx) <= b
-                 and then Compressed_Board (First_Data.end_idx) >= b
-               then
-                  return
-                    Option_Winner_Type'(True, To_Winner (First_Data.Value));
-               elsif Compressed_Board (Last_Data.start_idx) <= b
-                 and then Compressed_Board (Last_Data.end_idx) >= b
-               then
-                  return
-                    Option_Winner_Type'(True, To_Winner (Last_Data.Value));
-               else
-                  return Option_Winner_Type'(False, 0);
-               end if;
-            end;
          end if;
       end loop;
    end Get_Score;
