@@ -42,18 +42,19 @@ package body Move_Book is
    Out_Work_File      : Ada.Text_IO.File_Type;
    Out_Work_File_Open : Boolean := false;
 
-   type In_Memory_Table_Record is record 
-      loc : Long_Integer;
+   type In_Memory_Table_Record is record
+      loc     : Long_Integer;
       extents : Mmap.Mmap_Record;
    end record;
 
-   package In_Memory_Table_Type is new Ada.Containers.Vectors (Natural, In_Memory_Table_Record);
+   package In_Memory_Table_Type is new
+     Ada.Containers.Vectors (Natural, In_Memory_Table_Record);
    In_Memory_Table : In_Memory_Table_Type.Vector;
    use In_Memory_Table_Type;
 
    procedure Build_In_Memory_Table with Pre => In_File_Open is
-      sample : In_Memory_Table_Record;
-      length : constant Long_Integer := Mmap.Length;
+      sample       : In_Memory_Table_Record;
+      length       : constant Long_Integer := Mmap.Length;
       table_length : constant := 128;
    begin
       sample.extents := Mmap.Get (0);
@@ -65,7 +66,8 @@ package body Move_Book is
             -- length is limited by drive space, so a trillion ~ 2**40
             -- is about tops now, thus as long as table_length is less
             -- than 2**24, this should be safe
-            loc : constant Long_Integer := (Long_Integer(i) * length) / table_length;
+            loc : constant Long_Integer :=
+              (Long_Integer (i) * length) / table_length;
          begin
             sample.extents := Mmap.Get (loc);
             sample.loc := loc;
@@ -85,7 +87,8 @@ package body Move_Book is
       if infilename /= "" then
          In_File_Open := True;
          Mmap.Open (infilename);
-         -- Build_In_Memory_Table;
+         Build_In_Memory_Table;
+
       end if;
       if outfilename /= "" then
          Update_File_Open := True;
@@ -112,38 +115,81 @@ package body Move_Book is
    end To_Winner;
 
    function Get_Score (b : Compressed_Board) return Option_Winner_Type is
-      First  : Long_Integer := 0;
-      Last   : Long_Integer := Mmap.Length - 1;
+      subtype Index is Natural;
+
+      function Find_Region (Target : Interfaces.C.Long_Long) return Index is
+         Low        : Index := 0;
+         Table_Last : constant Index := Index (Length (In_Memory_Table)) - 1;
+         High       : Index := Table_Last;
+      begin
+         while Low <= High loop
+            declare
+               Mid  : constant Index := (Low + High) / 2;
+               Item : constant In_Memory_Table_Record := In_Memory_Table (Mid);
+            begin
+               if Target < Item.extents.Start_Idx then
+                  if Mid = 0 then
+                     return Mid;
+                  end if;
+                  High := Mid - 1;
+               elsif Target > Item.extents.End_Idx then
+                  Low := Mid + 1;
+               else
+                  return Mid;
+               end if;
+            end;
+         end loop;
+
+         -- Fallback: use nearest safe bounds
+         return (if Low > Table_Last then Table_Last else Low);
+      end Find_Region;
+
+      First  : Long_Integer;
+      Last   : Long_Integer;
       Middle : Long_Integer;
       Data   : Mmap.Mmap_Record;
    begin
       if Game_Book_Map.Contains (b) then
          return Option_Winner_Type'(True, Game_Book_Map.Element (b));
       end if;
+
       if not In_File_Open then
          return Option_Winner_Type'(False, 0);
       end if;
+
+      declare
+         Region : constant Index := Find_Region (Long_Long (b));
+      begin
+         if Region = 0 then
+            First := 0;
+         else
+            First := In_Memory_Table (Region - 1).loc;
+         end if;
+         if Region = Index (Length (In_Memory_Table) - 1) then
+            Last := Mmap.Length - 1;
+         else
+            Last := In_Memory_Table (Region + 1).loc;
+         end if;
+      end;
+
       loop
-         -- / rounds down or towards zero
          Middle := First + (Last - First) / 2;
-         -- Loop invariant: First <= Middle <= Last
          Data := Mmap.Get (Middle);
-         if Compressed_Board (Data.start_idx) <= b
-           and then Compressed_Board (Data.end_idx) >= b
+
+         if Compressed_Board (Data.Start_Idx) <= b
+           and then Compressed_Board (Data.End_Idx) >= b
          then
             return Option_Winner_Type'(True, To_Winner (Data.Value));
-         elsif Compressed_Board (Data.start_idx) > b then
+         elsif Compressed_Board (Data.Start_Idx) > b then
             Last := Middle - 1;
-         elsif Compressed_Board (Data.end_idx) < b then
-            -- If Last - First > 1, then Middle >= First + 1.
-            -- If Last = First or Last = First + 1 then Middle := First
-            -- which will only happen if it's the first time through the
-            -- loop and then will be caught below.
+         elsif Compressed_Board (Data.End_Idx) < b then
             First := Middle + 1;
          end if;
+
          if First > Last then
             return Option_Winner_Type'(False, 0);
          end if;
+
       end loop;
    end Get_Score;
 
@@ -158,7 +204,7 @@ package body Move_Book is
 
    function Get_Missing_Move_Heap return Move_Heap_P.Max_Heap_Type is
    begin
-      Missing_Move_Heap.Compact (Max_Heap_Size);
+      Move_Heap_P.Compact (Missing_Move_Heap, Max_Heap_Size);
       return Missing_Move_Heap;
    end Get_Missing_Move_Heap;
 

@@ -1,9 +1,10 @@
-with Ada.Containers.Vectors; use Ada.Containers;
+with Ada.Containers.Vectors;
+use Ada.Containers;
 
 generic
    type T is (<>);
 package Uniq_Max_Heap is
-pragma Preelaborate (Uniq_Max_Heap);
+   pragma Preelaborate (Uniq_Max_Heap);
    type Max_Heap_Type is tagged private;
    function Size (heap: Max_Heap_Type) return Natural;
    function Max (heap: Max_Heap_Type) return T;
