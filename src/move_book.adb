@@ -35,6 +35,10 @@ package body Move_Book is
         Equivalent_Keys => Is_Equal);
 
    Game_Book_Map : Move_Hash_Map.Map;
+   function Live_Book_Size return Natural is
+   begin
+      return Natural (Game_Book_Map.Length);
+   end Live_Book_Size;
 
    In_File_Open       : Boolean := false;
    Update_File        : Ada.Text_IO.File_Type;

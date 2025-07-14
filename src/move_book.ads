@@ -19,6 +19,7 @@ package Move_Book is
    with Pre => Is_Legal_Board (b) and then not Game_Over (b);
    procedure Missing_Move_Insert (b : Compressed_Board);
    procedure Close;
+   function Live_Book_Size return Natural;
 
    package Move_Heap_P is new Uniq_Max_Heap (Compressed_Board);
    function Get_Missing_Move_Heap return Move_Heap_P.Max_Heap_Type;

@@ -62,7 +62,6 @@ package Kalah_Board is
    type Game_State_Consumer is access procedure (B : in Game_State_Type);
 
    procedure Base_Boards
-     (num_board_piece : Piece_Count;
-      consumer        : Game_State_Consumer);
+     (num_board_piece : Piece_Count; consumer : Game_State_Consumer);
 
 end Kalah_Board;

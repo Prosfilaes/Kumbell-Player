@@ -22,7 +22,7 @@ begin
          & " --endgame <move book> <out move book>");
       return;
    end if;
-   Move_Book.Set_Max_Heap_Size (150_000_000);
+   Move_Book.Set_Max_Heap_Size (50_000_000);
    if Ada.Command_Line.Argument (1) = "--endgame" then
       Move_Book.Load_Book
         (Ada.Command_Line.Argument (2), Ada.Command_Line.Argument (3));
@@ -40,15 +40,22 @@ begin
    end if;
    curr_moves := Move_Book.Get_Missing_Move_Heap;
    Move_Book.Reset_Missing_Move_Heap;
-   while (curr_moves.Size > 0) loop
+   while (curr_moves.size > 0) loop
       cycle_count := @ + 1;
+      if Move_Book.Live_Book_Size > 250_000_000 then
+         Put_Line
+           ("The live book size exceeds 250 million. Exiting due to excess memory load.");
+           return;
+      end if;
       Put_Line
         ("** Cycle "
          & cycle_count'Image
          & " working on "
          & curr_moves.size'Image
-         & " items.**");
-      while (curr_moves.Size > 0) loop
+         & " boards with "
+         & Move_Book.Live_Book_Size'Image
+         & " new boards solved.**");
+      while (curr_moves.size > 0) loop
          Move_Heap_P.Pop_Max (curr_moves, cb);
          Move_Book.Add_Move (Decompress (cb));
       end loop;
