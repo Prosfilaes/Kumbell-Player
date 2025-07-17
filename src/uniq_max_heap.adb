@@ -1,6 +1,7 @@
 with GNAT.IO;
 
 package body Uniq_Max_Heap is
+
    procedure Heapify (heap : in out Max_Heap_Type; index : in Natural);
 
    function Left (index : Natural) return Natural with Inline is
