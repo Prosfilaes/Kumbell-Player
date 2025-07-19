@@ -1,4 +1,43 @@
-This is code to build movebooks for abstract games of two players.
-So far we've established that Kalah played on a board with six pits
-per players starting with 2 or 3 beads in each pit is a first-player
-win. Standard is four.
+This is code to build movebooks for abstract games of two players. So far 
+we've established that Kalah played on a board with six pits per players 
+starting with 2 or 3 beads in each pit is a first-player win. Standard is 
+four.
+
+The game is switched by changing the implementation of the Board package. 
+As it is set up, only games whose state can be encoded in 64 bits can be
+run. (Actually, I believe the limit is 63 bits; there are a few parts of
+the code that treat the difference between signed Long_Integer and 
+unsigned Compressed_Board carelessly, but they can and should be fixed.)
+Currently only Tic-Tac-Toe and Kalah are implemented. Kalah is treated
+as a template, so the size of the board and the number of beads in each
+pit can be varied, and the rules changed to a misère format.
+
+The 64 bit limitation is pretty severe; a 5x5 chess game might fit in
+the format, provided you simplified the details enough. Hex will only 
+fit up to 6x6 boards. I'm not sure it matters, though; after analyzing 
+over fourteen billion Kalah boards, which justified the need for many of 
+the optimizations added, it doesn't feel that I've made a substantial 
+dent in the solution. A game that can't be compressed to 64 bits is 
+probably not a game that is solvable.
+
+The compressed board for Kalah has the advantage that each move produces
+a board with a higher number than the last. (Any move that scores points
+produces a higher board number, and otherwise pieces move to the left,
+which increases the board number.) This is trivial for games that
+progressively add pieces to the board, like Tic-Tac-Toe and Hex. On the
+other hand, this is obviously impossible for games that can loop state,
+and this code probably won't work with them.
+
+Naively, if there is a square grid where each player can place a marker,
+thus three states per location, up to a 6x6 board can be supported in 64
+bits. If players can place two different types of markers, the largest
+available square board would be a 5x5 board. If there is a 8x8 board, up 
+to ten pieces can be tracked in 64 bits. With work and exploiting the 
+rules about placing pieces, larger boards might work. The system could
+be expanded to 128 bits, but I don't believe there's many cases where
+an expansion would be necessary for a solvable game.
+
+Future work:
+* Hex support
+* Producing a minimal playbook to win from the start for 1st player wins.   
+* Better visualization of results in general
