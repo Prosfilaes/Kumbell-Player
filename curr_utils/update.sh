@@ -4,7 +4,7 @@ set -e
 
 export TMPDIR=/var/tmp/kumbell
 #cat movebook_* unsum | sed 's/^[[:space:]]//g;s/[[:space:]]$//g' | sort -n | uniq  > unsum_
-cat movebook_* | sed 's/^[[:space:]]//g;s/[[:space:]]$//g' | cut -f 1-3 -d" " | sort -n | uniq  > $TMPDIR/unsum_part
+cat movebook_* | cut_movebook | sort -n | uniq  > $TMPDIR/unsum_part
 touch unsum
 sort -n -m unsum $TMPDIR/unsum_part | uniq > $TMPDIR/unsum_
 if [ ! -s $TMPDIR/unsum_ ]; then

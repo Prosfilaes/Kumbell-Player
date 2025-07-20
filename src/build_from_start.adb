@@ -15,7 +15,7 @@ procedure Build_From_Start is
    cycle_count       : Natural := 0;
    max_heap_size     : constant := 100_000_000;
    mhs_name          : constant String := Format_Number (max_heap_size);
-   live_book_size    : constant := 250_000_000;
+   live_book_size    : constant := 200_000_000;
    lbs_name          : constant String := Format_Number (live_book_size);
    overflow_filename : Unbounded_String;
 begin
@@ -29,6 +29,9 @@ begin
       Put_Line
         (Ada.Command_Line.Command_Name
          & " <move book> <out move book> (<overflow boards>)");
+      Put_Line
+        (Ada.Command_Line.Command_Name
+         & " none <out move book> (<overflow boards>)");
       Put_Line
         (Ada.Command_Line.Command_Name
          & " --boardlist <board list> <move book> <out move book> (<overflow boards>)");
@@ -89,8 +92,13 @@ begin
          overflow_filename :=
            To_Unbounded_String (Ada.Command_Line.Argument (3));
       end if;
-      Move_Book.Load_Book
-        (Ada.Command_Line.Argument (1), Ada.Command_Line.Argument (2));
+      if Ada.Command_Line.Argument (1) = "none" then
+         Move_Book.Load_Book
+            ("", Ada.Command_Line.Argument (2));
+      else
+         Move_Book.Load_Book
+            (Ada.Command_Line.Argument (1), Ada.Command_Line.Argument (2));
+      end if;
       Put_Line
         ("* Loaded book and starting " & Board.To_String (Board.Initialize));
       Move_Book.Add_Move (Board.Initialize);
