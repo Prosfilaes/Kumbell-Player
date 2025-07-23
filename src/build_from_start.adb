@@ -13,9 +13,9 @@ procedure Build_From_Start is
    cb                : Board.Compressed_Board;
    curr_moves        : Move_Heap_P.Max_Heap_Type;
    cycle_count       : Natural := 0;
-   max_heap_size     : constant := 100_000_000;
+   max_heap_size     : constant := 150_000_000;
    mhs_name          : constant String := Format_Number (max_heap_size);
-   live_book_size    : constant := 200_000_000;
+   live_book_size    : constant := 250_000_000;
    lbs_name          : constant String := Format_Number (live_book_size);
    overflow_filename : Unbounded_String;
 begin
@@ -133,9 +133,9 @@ begin
         ("** Cycle "
          & cycle_count'Image
          & " working on "
-         & curr_moves.size'Image
+         & Format_Number(Long_Integer (curr_moves.size))
          & " boards with "
-         & Move_Book.Live_Book_Size'Image
+         & Format_Number (Long_Integer (Move_Book.Live_Book_Size))
          & " new boards solved.**");
       while (curr_moves.size > 0) loop
          Move_Heap_P.Pop_Max (curr_moves, cb);

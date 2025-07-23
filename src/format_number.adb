@@ -9,6 +9,9 @@ function Format_Number (N : Long_Integer) return String is
       Res_Pos : Integer := Result'Length;
       Count : Integer := 0;
    begin
+      if Num < 1000 then
+         return Str;
+      end if;
       while Pos >= 1 loop
          Result (Res_Pos) := Str (Pos);
          Count := Count + 1;
@@ -38,7 +41,9 @@ function Format_Number (N : Long_Integer) return String is
    end Format_X_X;
 
 begin
-   if N mod Billion = 0 and N / Billion < 1_000 then
+   if N < 1000 or else N mod 10 /= 0 then
+      return N'Image;
+   elsif N mod Billion = 0 and N / Billion < 1_000 then
       return Integer'Image (Integer (N / Billion)) & " billion";
    elsif N mod Million = 0 and N / Million < 1_000 then
       return Integer'Image (Integer (N / Million)) & " million";
@@ -49,6 +54,6 @@ begin
    elsif N mod Hundred_Thousand = 0 then
       return Format_X_X (N, Thousand, "thousand");
    else
-      return Comma_Separated (N);
+      return N'Image;
    end if;
 end Format_Number;

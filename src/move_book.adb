@@ -92,7 +92,6 @@ package body Move_Book is
          In_File_Open := True;
          Mmap.Open (infilename);
          Build_In_Memory_Table;
-
       end if;
       if outfilename /= "" then
          Update_File_Open := True;
